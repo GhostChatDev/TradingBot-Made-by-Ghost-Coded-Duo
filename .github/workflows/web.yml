@@ -48,3 +48,5 @@ jobs:
           NODE
       - name: Run trading terminal checks
         run: node tests/terminal.test.js
+      - name: Run pump bot checks
+        run: node tests/pumpbot.test.js
