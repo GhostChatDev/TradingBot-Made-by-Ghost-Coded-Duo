@@ -32,7 +32,7 @@
     check(win.__errors.length === 0, 'page has no uncaught errors');
     check(doc.querySelector('meta[name="viewport"]') !== null, 'mobile viewport is configured');
     check(doc.documentElement.scrollWidth <= 375, 'mobile page does not scroll sideways');
-    const { create, open, close } = win.Paper;
+    const { create, open, close, exitSignal } = win.Paper;
     const date = new Date('2026-11-18T12:00:00Z');
     const params = {token:'TEST', mark:30, size:0.1, fee:2};
     const s = create(date);
@@ -57,26 +57,40 @@
     check(rejects(() => open(stopped, params, date), 'loss limit'), 'daily loss limit blocks entries');
     const weekly = create(date); weekly.weekPnl = -0.8;
     check(rejects(() => open(weekly, params, date), 'loss limit'), 'weekly loss limit blocks entries');
+    const auto = create(date);
+    open(auto, {...params, tp:30, sl:15, holdMin:10}, date);
+    const t0 = date.getTime(), ap = auto.position;
+    check(exitSignal(ap, 40, t0) === 'take-profit' && exitSignal(ap, 25, t0) === 'stop-loss' && exitSignal(ap, 31, t0 + 600000) === 'time-stop' && exitSignal(ap, 31, t0 + 1000) === null, 'exit rules trigger take profit, stop loss and time stop');
+    const gap = close(auto, {mark:15, fee:2, share:20}, date);
+    check(gap < -0.1 * 0.15, 'a gap past the stop loses more than the stop: losses are limited, not prevented');
+    check(rejects(() => open(create(date), {...params, sl:0}, date), 'stop loss'), 'invalid exit rules are rejected');
     const ui = id => doc.getElementById(id);
     ui('token').value = 'UI TEST'; ui('mark').value = '30'; ui('size').value = '0.1'; ui('buy').click();
     check(ui('position').textContent.includes('UI TEST') && ui('buy').disabled, 'paper ticket opens a position');
     ui('mark').value = '60'; ui('sell').click();
     check(ui('closed').textContent === '1' && ui('balance').textContent === '10.0921 SOL', 'paper ticket closes with expected balance');
     class FakeSocket {
-      constructor(url) { this.url = url; this.listeners = {}; FakeSocket.last = this; }
+      constructor(url) { this.url = url; this.listeners = {}; this.sent = []; this.readyState = 0; FakeSocket.last = this; }
       addEventListener(type, fn) { this.listeners[type] = fn; }
-      send(data) { this.sent = JSON.parse(data); }
-      close() { if (this.listeners.close) this.listeners.close(); }
-      emit(type, event = {}) { if (this.listeners[type]) this.listeners[type](event); }
+      send(data) { this.sent.push(JSON.parse(data)); }
+      close() { this.readyState = 3; if (this.listeners.close) this.listeners.close(); }
+      emit(type, event = {}) { if (type === 'open') this.readyState = 1; if (this.listeners[type]) this.listeners[type](event); }
     }
     win.WebSocket = FakeSocket;
     ui('connect').click();
     const socket = FakeSocket.last; socket.emit('open');
-    check(socket.url === 'wss://pumpportal.fun/api/data' && socket.sent.method === 'subscribeNewToken', 'feed subscribes to new launches');
+    check(socket.url === 'wss://pumpportal.fun/api/data' && socket.sent[0].method === 'subscribeNewToken', 'feed subscribes to new launches');
     socket.emit('message', {data:JSON.stringify({txType:'create', mint:'mint123', name:'<img src=x onerror=alert(1)>', symbol:'TEST', marketCapSol:30})});
     check(ui('feed').textContent.includes('<img src=x onerror=alert(1)>') && !ui('feed').querySelector('img'), 'untrusted launch names are rendered as text');
     ui('feed').querySelector('button').click();
     check(ui('token').value === 'mint123' && ui('mark').value === '30', 'selecting launch prefills paper ticket');
+    ui('buy').click();
+    check(socket.sent.some(m => m.method === 'subscribeTokenTrade' && m.keys[0] === 'mint123'), 'open position subscribes to its live trades');
+    socket.emit('message', {data:JSON.stringify({txType:'buy', mint:'other', marketCapSol:999})});
+    check(ui('sell').disabled === false, 'trades for other tokens are ignored');
+    socket.emit('message', {data:JSON.stringify({txType:'buy', mint:'mint123', marketCapSol:40})});
+    check(ui('closed').textContent === '2' && ui('balance').textContent === '10.1201 SOL', 'take profit auto-closes on a live mark');
+    check(socket.sent.some(m => m.method === 'unsubscribeTokenTrade' && m.keys[0] === 'mint123'), 'closed position unsubscribes');
     ui('connect').click();
     check(ui('connection-status').textContent === 'DISCONNECTED', 'feed disconnects');
     check(win.__errors.length === 0, 'interactions produce no uncaught errors');

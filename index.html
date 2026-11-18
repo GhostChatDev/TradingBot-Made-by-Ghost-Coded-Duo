@@ -28,7 +28,8 @@
 <section class="card"><div class="card-head"><div><h2>Paper activity</h2><p>Session-only simulated trades · resets on reload</p></div><span class="section-tag">SESSION LOG</span></div><div class="card-body"><ul class="activity" id="activity"><li class="muted">No paper trades yet.</li></ul></div></section>
 </main><aside class="side">
 <section class="card wide"><div class="card-head"><div><h2>Paper trade ticket</h2><p>Manual simulation · no transactions sent</p></div><span class="pill">SIMULATED</span></div><div class="card-body">
-<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
+<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div><div class="field"><label for="tp">Take profit (%)</label><input id="tp" type="number" min="1" max="1000" step="1" value="30"></div><div class="field"><label for="sl">Stop loss (%)</label><input id="sl" type="number" min="1" max="90" step="1" value="15"></div><div class="field full"><label for="hold">Max hold (minutes)</label><input id="hold" type="number" min="1" max="240" step="1" value="10"></div></div>
+<p class="hint">Auto exits: with the feed connected, the bot watches live trades of your open token and closes at take profit, stop loss or max hold. Exits fill at the next observed mark, so a fast dump can blow past the stop. Stops limit losses; they cannot prevent them. TP/SL are gross mark moves; costs apply on top.</p>
 <p class="hint">Use your own assumed market-cap marks to enter and exit. A 2% per-side cost is illustrative, not a quote. It excludes fixed fees, price impact, failed transactions and taxes.</p>
 <div class="trade-actions"><button class="button primary" id="buy">Open paper position</button><button class="button" id="sell" disabled>Close position</button></div><p class="status-message" id="trade-message" role="status" aria-live="polite"></p><div class="position" id="position">No open paper position.</div>
 </div></section>
@@ -55,7 +56,7 @@ const Paper = (() => {
     if (s.day !== dayKey(now)) { s.day = dayKey(now); s.dayStart = equityAtCost; s.dayPnl = 0; s.entries = 0; }
     if (s.week !== weekKey(now)) { s.week = weekKey(now); s.weekStart = equityAtCost; s.weekPnl = 0; }
   }
-  function open(s, { token, mark, size, fee }, now = new Date()) {
+  function open(s, { token, mark, size, fee, tp = 30, sl = 15, holdMin = 10 }, now = new Date()) {
     rollover(s, now);
     if (s.position) throw Error('Close the current paper position first.');
     if (typeof token !== 'string' || !token.trim()) throw Error('Enter a token or select a launch.');
@@ -65,8 +66,9 @@ const Paper = (() => {
     if (s.dayPnl <= -s.dayStart * 0.03 || s.weekPnl <= -s.weekStart * 0.08) throw Error('Paper loss limit reached; new entries are paused.');
     if (size > INITIAL * 0.01 + 1e-12) throw Error('Position exceeds the 1% starting-balance exposure cap (0.1 SOL).');
     if (size > s.balance) throw Error('Not enough paper SOL.');
+    if (!Number.isFinite(tp) || tp < 1 || tp > 1000 || !Number.isFinite(sl) || sl < 1 || sl > 90 || !Number.isFinite(holdMin) || holdMin < 1 || holdMin > 240) throw Error('Check take profit (1-1000%), stop loss (1-90%) and max hold (1-240 min).');
     s.balance -= size; s.entries++;
-    s.position = { token: token.trim(), mark, size, fee };
+    s.position = { token: token.trim(), mark, size, fee, tp, sl, holdMs: holdMin * 60000, openedAt: now.getTime(), lastMark: mark };
     s.history.unshift({ kind: 'OPEN', token: s.position.token, value: size, time: now.toISOString() });
   }
   function close(s, { mark, fee, share }, now = new Date()) {
@@ -85,7 +87,16 @@ const Paper = (() => {
     s.position = null;
     return result;
   }
-  return { create, open, close };
+  // Exit rule check on an observed mark; nowMs is a millisecond timestamp.
+  function exitSignal(p, mark, nowMs) {
+    if (!p || !Number.isFinite(mark) || mark <= 0) return null;
+    const change = (mark / p.mark - 1) * 100;
+    if (change >= p.tp) return 'take-profit';
+    if (change <= -p.sl) return 'stop-loss';
+    if (nowMs - p.openedAt >= p.holdMs) return 'time-stop';
+    return null;
+  }
+  return { create, open, close, exitSignal };
 })();
 window.Paper = Paper;
 const $ = id => document.getElementById(id);
@@ -93,6 +104,16 @@ const state = Paper.create();
 const launches = [];
 let selected = null;
 let socket = null;
+let watched = null;
+// One connection only (PumpPortal asks for this): swap the trade subscription to the open token.
+function watch() {
+  const want = state.position ? state.position.token : null;
+  if (!socket || socket.readyState !== 1) { watched = null; return; }
+  if (watched === want) return;
+  if (watched) socket.send(JSON.stringify({method:'unsubscribeTokenTrade', keys:[watched]}));
+  if (want) socket.send(JSON.stringify({method:'subscribeTokenTrade', keys:[want]}));
+  watched = want;
+}
 const number = id => $(id).value.trim() === '' ? NaN : Number($(id).value);
 const sol = value => `${value.toFixed(4)} SOL`;
 const short = value => value.length > 18 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value;
@@ -105,7 +126,9 @@ function render() {
   $('buy').disabled = !!state.position;
   $('sell').disabled = !state.position;
   $('token').readOnly = !!state.position;
-  $('position').textContent = state.position ? `OPEN · ${short(state.position.token)} · ${sol(state.position.size)} at ${state.position.mark.toLocaleString()} SOL market cap. Change the mark to simulate an exit.` : 'No open paper position.';
+  watch();
+  const p = state.position;
+  $('position').textContent = p ? `OPEN · ${short(p.token)} · ${sol(p.size)} at ${p.mark.toLocaleString()} SOL mcap · last ${p.lastMark.toLocaleString()} (${((p.lastMark / p.mark - 1) * 100).toFixed(1)}%) · TP +${p.tp}% / SL -${p.sl}% / ${p.holdMs / 60000} min. ${watched === p.token ? 'Auto exits live.' : 'Connect the feed for auto exits, or close manually.'}` : 'No open paper position.';
   const activity = $('activity'); activity.replaceChildren();
   if (!state.history.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No paper trades yet.'; activity.append(li); }
   for (const item of state.history.slice(0, 30)) {
@@ -138,16 +161,35 @@ function renderFeed() {
     feed.append(button);
   }
 }
+function autoClose(reason, mark) {
+  const p = state.position; if (!p) return;
+  const share = number('share');
+  try {
+    const result = Paper.close(state, { mark, fee: p.fee, share: Number.isFinite(share) && share >= 0 && share <= 100 ? share : 0 });
+    $('trade-message').textContent = `Auto ${reason} at ${mark.toLocaleString()} SOL mcap: ${result >= 0 ? '+' : ''}${sol(result)}. Paper only.`;
+  } catch (error) { $('trade-message').textContent = error.message; }
+  render();
+}
+function onMark(mark) {
+  const p = state.position;
+  if (!p || typeof mark !== 'number' || !Number.isFinite(mark) || mark <= 0) return;
+  p.lastMark = mark;
+  const reason = Paper.exitSignal(p, mark, Date.now());
+  if (reason) autoClose(reason, mark); else render();
+}
+// Time stop must fire even when the token stops trading.
+setInterval(() => { const p = state.position; if (p && Paper.exitSignal(p, p.lastMark, Date.now()) === 'time-stop') autoClose('time-stop', p.lastMark); }, 1000);
 function connection(status, live) { $('connection-status').textContent = status; $('connection-dot').classList.toggle('live', live); }
 $('connect').addEventListener('click', () => {
   if (socket) { const current = socket; socket = null; current.close(); connection('DISCONNECTED', false); $('connect').textContent = 'Connect feed ↗'; return; }
   connection('CONNECTING', false); $('connect').textContent = 'Disconnect';
   try {
     const ws = new WebSocket('wss://pumpportal.fun/api/data'); socket = ws;
-    ws.addEventListener('open', () => { if (socket !== ws) return; ws.send(JSON.stringify({method:'subscribeNewToken'})); connection('CONNECTED', true); });
+    ws.addEventListener('open', () => { if (socket !== ws) return; ws.send(JSON.stringify({method:'subscribeNewToken'})); connection('CONNECTED', true); watched = null; render(); });
     ws.addEventListener('message', event => {
       if (socket !== ws) return;
       let data; try { data = JSON.parse(event.data); } catch { return; }
+      if (data && (data.txType === 'buy' || data.txType === 'sell')) { if (state.position && data.mint === state.position.token) onMark(data.marketCapSol); return; }
       if (!data || data.txType !== 'create' || typeof data.mint !== 'string' || !data.mint || data.mint.length > 100) return;
       const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
       launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
@@ -158,7 +200,7 @@ $('connect').addEventListener('click', () => {
   } catch { socket = null; connection('FEED ERROR', false); $('connect').textContent = 'Connect feed ↗'; }
 });
 $('buy').addEventListener('click', () => {
-  try { Paper.open(state, { token: $('token').value, mark: number('mark'), size: number('size'), fee: number('fee') }); $('trade-message').textContent = 'Paper position opened. No real trade was sent.'; render(); }
+  try { Paper.open(state, { token: $('token').value, mark: number('mark'), size: number('size'), fee: number('fee'), tp: number('tp'), sl: number('sl'), holdMin: number('hold') }); $('trade-message').textContent = 'Paper position opened. No real trade was sent.'; render(); }
   catch (error) { $('trade-message').textContent = error.message; }
 });
 $('sell').addEventListener('click', () => {
