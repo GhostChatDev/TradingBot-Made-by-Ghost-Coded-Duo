@@ -140,6 +140,7 @@ function loadSaved() {
     }
     state = { ...Paper.create(), ...s };
     wantsFeed = !!parsed.wantsFeed;
+    $('rotate').checked = !!parsed.rotate;
     const t = parsed.ticket || {};
     if (typeof t.token === 'string') $('token').value = t.token;
     if (t.mark !== undefined) $('mark').value = String(t.mark);
@@ -171,6 +172,7 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       state,
       wantsFeed,
+      rotate: $('rotate').checked,
       ticket: {
         token: $('token').value,
         mark: $('mark').value,
@@ -203,6 +205,15 @@ function render() {
   $('pnl').className = `metric-value ${state.pnl > 0 ? 'green' : state.pnl < 0 ? 'red' : ''}`;
   $('closed').textContent = state.closed;
   $('allocation').textContent = sol(state.allocation);
+  const op = state.position;
+  if (op) {
+    const mk = op.lastMark || op.mark, est = Paper.openPnl(op, mk, op.fee);
+    $('openpnl').textContent = `${est > 0 ? '+' : ''}${sol(est)} (${((mk / op.mark - 1) * 100).toFixed(1)}%)`;
+    $('openpnl').className = `metric-value ${est > 0 ? 'green' : est < 0 ? 'red' : ''}`;
+    $('openmark').textContent = `Mark ${mk.toLocaleString()} SOL cap · est. after costs`;
+  } else {
+    $('openpnl').textContent = '—'; $('openpnl').className = 'metric-value'; $('openmark').textContent = 'No open position';
+  }
   $('buy').disabled = storageBlocked || !!state.position;
   $('sell').disabled = storageBlocked || !state.position;
   $('token').readOnly = storageBlocked || !!state.position;
@@ -249,7 +260,25 @@ function autoClose(reason, mark) {
     Paper.close(state, {mark, fee, share: Number.isFinite(share) && share >= 0 && share <= 100 ? share : 0});
     $('trade-message').textContent = `Paper auto ${reason} at ${mark} SOL market cap. No funds moved; stale marks are not executable quotes.`;
     persist(); render();
+    if ($('rotate').checked) { pendingRotate = true; tryRotate(); }
   } catch (error) { $('trade-message').textContent = error.message; }
+}
+
+let pendingRotate = false;
+function tryRotate() {
+  if (!pendingRotate || storageBlocked || state.position || !$('rotate').checked) return;
+  const next = launches.find(l => l.cap !== null && !state.history.some(h => h.token === l.mint));
+  if (!next) { $('trade-message').textContent = 'Auto-rotate: waiting for the next new launch…'; return; }
+  try {
+    Paper.open(state, { token: next.mint, mark: next.cap, size: number('size'), fee: number('fee'), tp: number('tp'), sl: number('sl'), holdMin: number('hold') });
+    pendingRotate = false; selected = next.mint;
+    $('token').value = next.mint; $('mark').value = String(next.cap);
+    $('trade-message').textContent = `Auto-rotate opened a paper position in ${short(next.mint)}. No real trade was sent.`;
+    persist(); render(); renderFeed();
+  } catch (error) {
+    pendingRotate = false; $('rotate').checked = false; persist();
+    $('trade-message').textContent = `Auto-rotate stopped: ${error.message}`;
+  }
 }
 
 function onMark(mark) {
@@ -291,7 +320,7 @@ function connectFeed() {
       if (!data || data.txType !== 'create' || typeof data.mint !== 'string' || !data.mint || data.mint.length > 100) return;
       const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
       launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
-      if (launches.length > 50) launches.pop(); renderFeed();
+      if (launches.length > 50) launches.pop(); renderFeed(); tryRotate();
     });
     ws.addEventListener('error', () => { if (socket === ws) { socket = null; ws.close(); retry(); } });
     ws.addEventListener('close', () => { if (socket !== ws) return; socket = null; retry(); });
@@ -309,6 +338,13 @@ $('connect').addEventListener('click', () => {
 for (const id of ['token', 'mark', 'size', 'fee', 'share', 'tp', 'sl', 'hold']) {
   $(id).addEventListener('input', persist);
 }
+$('rotate').addEventListener('change', () => { if (!$('rotate').checked) pendingRotate = false; persist(); });
+$('reset').addEventListener('click', () => {
+  if (storageBlocked) return;
+  state = Paper.create(); pendingRotate = false; watched = null;
+  $('trade-message').textContent = 'Paper account reset to 5 SOL.';
+  persist(); render();
+});
 window.addEventListener('beforeunload', persist);
 window.addEventListener('online', () => { clearTimeout(retryTimer); retryTimer = null; connectFeed(); });
 
