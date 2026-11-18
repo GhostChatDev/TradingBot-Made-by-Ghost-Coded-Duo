@@ -29,6 +29,8 @@
 </main><aside class="side">
 <section class="card wide"><div class="card-head"><div><h2>Paper trade ticket</h2><p>Manual simulation · no transactions sent</p></div><span class="pill">SIMULATED</span></div><div class="card-body">
 <div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
+<div class="fields"><div class="field"><label for="tp">Take profit (%)</label><input id="tp" type="number" min="1" max="1000" value="30"></div><div class="field"><label for="sl">Stop loss (%)</label><input id="sl" type="number" min="1" max="90" value="15"></div><div class="field full"><label for="hold">Max hold (minutes)</label><input id="hold" type="number" min="1" max="240" value="10"></div></div>
+<p class="hint">Paper exits use live marks while connected. Time stops use the last observed mark, which may be stale. No execution occurs while this page is closed. Stops cannot prevent losses; gaps can exceed the stop. TP/SL exclude costs.</p>
 <p class="hint">Use your own assumed market-cap marks to enter and exit. A 2% per-side cost is illustrative, not a quote. It excludes fixed fees, price impact, failed transactions and taxes.</p>
 <div class="trade-actions"><button class="button primary" id="buy">Open paper position</button><button class="button" id="sell" disabled>Close position</button></div><p class="status-message" id="trade-message" role="status" aria-live="polite"></p><div class="position" id="position">No open paper position.</div><p class="hint" id="storage-status" role="status" aria-live="polite"></p>
 </div></section>
@@ -55,7 +57,7 @@ const Paper = (() => {
     if (s.day !== dayKey(now)) { s.day = dayKey(now); s.dayStart = equityAtCost; s.dayPnl = 0; s.entries = 0; }
     if (s.week !== weekKey(now)) { s.week = weekKey(now); s.weekStart = equityAtCost; s.weekPnl = 0; }
   }
-  function open(s, { token, mark, size, fee }, now = new Date()) {
+  function open(s, { token, mark, size, fee, tp = 30, sl = 15, holdMin = 10 }, now = new Date()) {
     rollover(s, now);
     if (s.position) throw Error('Close the current paper position first.');
     if (typeof token !== 'string' || !token.trim()) throw Error('Enter a token or select a launch.');
@@ -65,8 +67,9 @@ const Paper = (() => {
     if (s.dayPnl <= -s.dayStart * 0.03 || s.weekPnl <= -s.weekStart * 0.08) throw Error('Paper loss limit reached; new entries are paused.');
     if (size > INITIAL * 0.01 + 1e-12) throw Error('Position exceeds the 1% starting-balance exposure cap (0.1 SOL).');
     if (size > s.balance) throw Error('Not enough paper SOL.');
+    if (!Number.isFinite(tp) || tp < 1 || tp > 1000 || !Number.isFinite(sl) || sl < 1 || sl > 90 || !Number.isFinite(holdMin) || holdMin < 1 || holdMin > 240) throw Error('Check take profit, stop loss and max hold settings.');
     s.balance -= size; s.entries++;
-    s.position = { token: token.trim(), mark, size, fee };
+    s.position = { token: token.trim(), mark, size, fee, tp, sl, holdMin, openedAt: now.getTime(), lastMark: mark };
     s.history.unshift({ kind: 'OPEN', token: s.position.token, value: size, time: now.toISOString() });
   }
   function close(s, { mark, fee, share }, now = new Date()) {
@@ -85,12 +88,19 @@ const Paper = (() => {
     s.position = null;
     return result;
   }
-  return { create, open, close };
+  function exitSignal(p, mark, now = Date.now()) {
+    if (!p || !Number.isFinite(mark) || mark <= 0) return null;
+    if (mark >= p.mark * (1 + p.tp / 100)) return 'take-profit';
+    if (mark <= p.mark * (1 - p.sl / 100)) return 'stop-loss';
+    if (now - p.openedAt >= p.holdMin * 60000) return 'time-stop';
+    return null;
+  }
+  return { create, open, close, exitSignal };
 })();
 window.Paper = Paper;
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'ghost-trading-paper-v1';
-const fields = ['token', 'mark', 'size', 'fee', 'share'];
+const fields = ['token', 'mark', 'size', 'fee', 'share', 'tp', 'sl', 'hold'];
 let state = Paper.create(), saveError = '';
 function decode(raw) {
   const saved = JSON.parse(raw), s = saved.state;
@@ -99,7 +109,14 @@ function decode(raw) {
   if (!Array.isArray(s.history) || s.history.length > 1000 || !s.history.every(h => h && ['OPEN','CLOSE'].includes(h.kind) && typeof h.token === 'string' && h.token.length <= 100 && finite(h.value) && Number.isFinite(Date.parse(h.time)))) throw Error('Invalid history');
   const p = s.position;
   if (p !== null && (!p || typeof p.token !== 'string' || !p.token.trim() || p.token.length > 100 || !['mark','size','fee'].every(k => finite(p[k])) || p.mark <= 0 || p.size <= 0 || p.size > 0.1 + 1e-12 || p.fee < 0 || p.fee > 25)) throw Error('Invalid position');
-  if (!saved.settings || !fields.every(k => typeof saved.settings[k] === 'string' && saved.settings[k].length <= 100)) throw Error('Invalid settings');
+  if (p) {
+    // Migrate positions saved before automatic exit rules were persisted.
+    if (['tp','sl','holdMin','openedAt','lastMark'].every(k => p[k] === undefined)) Object.assign(p, {tp:30, sl:15, holdMin:10, openedAt:Date.now(), lastMark:p.mark});
+    if (!['tp','sl','holdMin','openedAt','lastMark'].every(k => finite(p[k])) || p.tp < 1 || p.tp > 1000 || p.sl < 1 || p.sl > 90 || p.holdMin < 1 || p.holdMin > 240 || p.openedAt < 0 || p.lastMark <= 0) throw Error('Invalid exit rules');
+  }
+  if (!saved.settings) throw Error('Invalid settings');
+  for (const [k,v] of Object.entries({tp:'30',sl:'15',hold:'10'})) if (saved.settings[k] === undefined) saved.settings[k] = v;
+  if (!fields.every(k => typeof saved.settings[k] === 'string' && saved.settings[k].length <= 100)) throw Error('Invalid settings');
   return saved;
 }
 let storageBlocked = false;
@@ -116,11 +133,20 @@ function persist() {
 }
 const launches = [];
 let selected = null;
-let socket = null;
+let socket = null, watched = null;
+function watchPosition() {
+  if (!socket || socket.readyState !== 1) return;
+  const mint = storageBlocked ? null : state.position?.token || null;
+  if (mint === watched) return;
+  if (watched) socket.send(JSON.stringify({method:'unsubscribeTokenTrade', keys:[watched]}));
+  if (mint) socket.send(JSON.stringify({method:'subscribeTokenTrade', keys:[mint]}));
+  watched = mint;
+}
 const number = id => $(id).value.trim() === '' ? NaN : Number($(id).value);
 const sol = value => `${value.toFixed(4)} SOL`;
 const short = value => value.length > 18 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value;
 function render() {
+  watchPosition();
   $('balance').textContent = sol(state.balance);
   $('pnl').textContent = `${state.pnl > 0 ? '+' : ''}${sol(state.pnl)}`;
   $('pnl').className = `metric-value ${state.pnl > 0 ? 'green' : state.pnl < 0 ? 'red' : ''}`;
@@ -163,16 +189,34 @@ function renderFeed() {
     feed.append(button);
   }
 }
+function autoClose(reason, mark) {
+  if (storageBlocked || !state.position) return;
+  const fee = state.position.fee, share = number('share');
+  try {
+    Paper.close(state, {mark, fee, share: Number.isFinite(share) && share >= 0 && share <= 100 ? share : 0});
+    $('trade-message').textContent = `Paper auto ${reason} at ${mark} SOL market cap. No funds moved; stale marks are not executable quotes.`;
+    persist(); render();
+  } catch (error) { $('trade-message').textContent = error.message; }
+}
+function onMark(mark) {
+  const p = state.position;
+  if (storageBlocked || !p || !Number.isFinite(mark) || mark <= 0) return;
+  p.lastMark = mark; $('mark').value = mark;
+  const reason = Paper.exitSignal(p, mark);
+  if (reason) autoClose(reason, mark); else { persist(); render(); }
+}
+setInterval(() => { const p = state.position; if (p && Date.now() - p.openedAt >= p.holdMin * 60000) autoClose('time-stop (last observed mark)', p.lastMark); }, 1000);
 function connection(status, live) { $('connection-status').textContent = status; $('connection-dot').classList.toggle('live', live); }
 $('connect').addEventListener('click', () => {
   if (socket) { const current = socket; socket = null; current.close(); connection('DISCONNECTED', false); $('connect').textContent = 'Connect feed ↗'; return; }
   connection('CONNECTING', false); $('connect').textContent = 'Disconnect';
   try {
     const ws = new WebSocket('wss://pumpportal.fun/api/data'); socket = ws;
-    ws.addEventListener('open', () => { if (socket !== ws) return; ws.send(JSON.stringify({method:'subscribeNewToken'})); connection('CONNECTED', true); });
+    ws.addEventListener('open', () => { if (socket !== ws) return; ws.send(JSON.stringify({method:'subscribeNewToken'})); connection('CONNECTED', true); watched = null; watchPosition(); });
     ws.addEventListener('message', event => {
       if (socket !== ws) return;
       let data; try { data = JSON.parse(event.data); } catch { return; }
+      if (data && (data.txType === 'buy' || data.txType === 'sell')) { if (state.position && data.mint === state.position.token) onMark(data.marketCapSol); return; }
       if (!data || data.txType !== 'create' || typeof data.mint !== 'string' || !data.mint || data.mint.length > 100) return;
       const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
       launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
@@ -184,7 +228,7 @@ $('connect').addEventListener('click', () => {
 });
 $('buy').addEventListener('click', () => {
   if (storageBlocked) return;
-  try { Paper.open(state, { token: $('token').value, mark: number('mark'), size: number('size'), fee: number('fee') }); $('trade-message').textContent = 'Paper position opened. No real trade was sent.'; render(); }
+  try { Paper.open(state, { token: $('token').value, mark: number('mark'), size: number('size'), fee: number('fee'), tp:number('tp'), sl:number('sl'), holdMin:number('hold') }); $('trade-message').textContent = 'Paper position opened. No real trade was sent.'; render(); }
   catch (error) { $('trade-message').textContent = error.message; }
 });
 $('sell').addEventListener('click', () => {
