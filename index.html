@@ -20,24 +20,23 @@
 <div class="notice"><strong>Paper trading only.</strong> No wallet, real orders, fee collection, transfers, or E2B are connected. Launch snapshots are not live price quotes. Memecoins can lose all their value.</div>
 <div class="grid"><main class="main">
 <section class="metrics" aria-label="Paper account summary">
-<div class="metric"><div class="metric-label">Paper balance</div><div class="metric-value" id="balance">5.0000 SOL</div><small>5 SOL starting paper bankroll · existing accounts preserved</small></div>
+<div class="metric"><div class="metric-label">Paper balance</div><div class="metric-value" id="balance">5.0000 SOL</div><small>5 SOL starting paper bankroll</small></div>
 <div class="metric"><div class="metric-label">Realized P&amp;L</div><div class="metric-value" id="pnl">0.0000 SOL</div><small>Closed paper trades</small></div>
 <div class="metric"><div class="metric-label">Closed trades</div><div class="metric-value" id="closed">0</div><small>No live performance</small></div>
 <div class="metric"><div class="metric-label">Server allocation</div><div class="metric-value" id="allocation">0.0000 SOL</div><small>Paper calculation only</small></div>
 </section>
-<section class="card" aria-label="Live trading terminal"><div class="card-head"><div><h2>Live market-cap chart · <span id="chart-token">No open position</span></h2><p>Real PumpPortal trades for the open paper position · dashed lines show entry, take profit and stop</p></div><span class="section-tag">● &nbsp; TERMINAL</span></div><div class="card-body"><canvas id="chart" style="width:100%;height:220px;display:block" role="img" aria-label="Market cap chart of observed trades"></canvas><div class="metrics" style="margin-top:12px"><div class="metric"><div class="metric-label">Last cap</div><div class="metric-value" id="chart-last">—</div></div><div class="metric"><div class="metric-label">Change vs entry</div><div class="metric-value" id="chart-change">—</div></div><div class="metric"><div class="metric-label">High / Low</div><div class="metric-value"><span id="chart-high">—</span> / <span id="chart-low">—</span></div></div><div class="metric"><div class="metric-label">Buys / Sells</div><div class="metric-value"><span id="chart-buys">0</span> / <span id="chart-sells">0</span></div></div></div><h3 style="font-size:13px;margin:16px 0 6px">Trade tape</h3><ul class="activity" id="tape"><li class="muted">Open a position from the feed to stream its trades.</li></ul><p class="hint">Chart shows trades observed while this page is open; it resets on reload. Market caps are not executable quotes.</p></div></section>
 <section class="card"><div class="card-head"><div><h2>New token launches</h2><p>Free PumpPortal creation stream · select a launch to prefill the paper ticket</p></div><span class="section-tag">● &nbsp; LAUNCH FEED</span></div><div class="feed" id="feed"><div class="empty"><div class="empty-icon">◉</div><strong>No launch events yet</strong><span>Connect the feed to watch new launches.<br>Events appear only while this page is open.</span></div></div><div class="card-body hint">Market cap is the provider's launch-time snapshot, not a current price. No token safety checks are performed. <a href="https://pumpportal.fun/data-api/real-time/" target="_blank" rel="noopener noreferrer">Feed docs ↗</a></div></section>
 <section class="card"><div class="card-head"><div><h2>Paper activity</h2><p>Saved in this browser · persists across reloads</p></div><span class="section-tag">SESSION LOG</span></div><div class="card-body"><ul class="activity" id="activity"><li class="muted">No paper trades yet.</li></ul></div></section>
 </main><aside class="side">
 <section class="card wide"><div class="card-head"><div><h2>Paper trade ticket</h2><p>Manual simulation + live auto-exits · no transactions sent</p></div><span class="pill">SIMULATED</span></div><div class="card-body">
-<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" max="5" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
+<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" max="5" step="any" value="0.5"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
 <div class="fields" style="margin-top:12px"><div class="field"><label for="tp">Take profit (%)</label><input id="tp" type="number" min="1" max="1000" value="30"></div><div class="field"><label for="sl">Stop loss (%)</label><input id="sl" type="number" min="1" max="90" value="15"></div><div class="field full"><label for="hold">Max hold (minutes)</label><input id="hold" type="number" min="1" max="1440" value="10"></div></div>
-<p class="hint">Up to 5 SOL per position, limited by available paper balance. Auto-exits require observed trades; offline moves cannot be recovered.</p>
-<label><input id="rotate" type="checkbox"> Auto-open the next new launch after closing (paper only)</label>
-<p class="hint">Off by default. Uses ticket size and exit rules. No token safety checks; repeated trades can exhaust the simulated balance.</p>
+<p class="hint">Up to 5 SOL per position (5 SOL paper bankroll). Auto-exits watch live PumpPortal token trades while connected.</p>
+<label class="row hint" for="rotate"><input id="rotate" type="checkbox"> Auto-rotate: after each exit, open the next new launch with this ticket (paper only)</label>
+<div class="position" id="live-pnl" aria-live="polite">Open P&amp;L: —</div>
 <div class="trade-actions"><button class="button primary" id="buy">Open paper position</button><button class="button" id="sell" disabled>Close position</button></div><p class="status-message" id="trade-message" role="status" aria-live="polite"></p><div class="position" id="position">No open paper position.</div>
 </div></section>
-<section class="card"><div class="card-head"><div><h3>Risk guardrails</h3><p>Paper ticket controls</p></div><span class="section-tag">RISK FIRST</span></div><div class="card-body"><div class="risk-line"><span>Exposure</span><strong>5 SOL max per trade</strong></div><div class="risk-line"><span>Positions</span><strong>1 at a time</strong></div><div class="risk-line"><span>Entries / loss stops</span><strong>No daily / weekly blocks</strong></div><p class="hint">Saved locally across reloads. Stop orders trigger on the next observed mark and can lose more on gaps.</p></div></section>
+<section class="card"><div class="card-head"><div><h3>Risk guardrails</h3><p>Paper ticket controls</p></div><span class="section-tag">RISK FIRST</span></div><div class="card-body"><div class="risk-line"><span>Exposure</span><strong>5 SOL max per trade</strong></div><div class="risk-line"><span>Positions</span><strong>1 at a time</strong></div><div class="risk-line"><span>Entries</span><strong>No daily limit</strong></div><div class="risk-line"><span>Exits</span><strong>TP / SL / max hold</strong></div><p class="hint">Saved locally across reloads. Stop orders trigger on the next observed mark and can lose more on gaps.</p></div></section>
 <section class="card"><div class="card-head"><div><h3>Build roadmap</h3><p>Not connected in this version</p></div><span class="section-tag">NEXT UP</span></div><div class="card-body"><div class="risk-line"><span>Strategy &amp; backtesting</span><strong class="yellow">REQUIRED</strong></div><div class="risk-line"><span>Real order execution</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>Fee routing / Ghost Chat</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>E2B integration</span><strong class="muted">FUTURE</strong></div><p class="hint">The launch feed cannot verify holders, bundles, dev sales, liquidity or safe execution.</p></div></section>
 </aside></div><footer class="footer"><span>✦ &nbsp; GHOST TRADING / BUILT FOR THE LONG GAME</span><span>Independent project · Not affiliated with pump.fun or PumpPortal · Not financial advice</span></footer>
 </div>
@@ -135,7 +134,6 @@ function loadSaved() {
     }
     state = { ...Paper.create(), ...s };
     wantsFeed = !!parsed.wantsFeed;
-    $('rotate').checked = parsed.rotate === true;
     const t = parsed.ticket || {};
     if (typeof t.token === 'string') $('token').value = t.token;
     if (t.mark !== undefined) $('mark').value = String(t.mark);
@@ -167,7 +165,6 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       state,
       wantsFeed,
-      rotate: $('rotate').checked,
       ticket: {
         token: $('token').value,
         mark: $('mark').value,
@@ -203,10 +200,7 @@ function render() {
   $('buy').disabled = storageBlocked || !!state.position;
   $('sell').disabled = storageBlocked || !state.position;
   $('token').readOnly = storageBlocked || !!state.position;
-  const p = state.position;
-  const estimate = p ? p.size * (1 - p.fee / 100) ** 2 * p.lastMark / p.mark - p.size : 0;
-  $('position').textContent = p ? `OPEN · ${short(p.token)} · ${sol(p.size)} · Entry cap: ${p.mark.toLocaleString()} SOL · Latest cap: ${p.lastMark.toLocaleString()} SOL · Estimated P&L: ${sol(estimate)} (${(estimate / p.size * 100).toFixed(2)}%) · TP +${p.tp}% / SL -${p.sl}% / ${p.holdMin}m. Last observed mark, not an executable quote.` : 'No open paper position.';
-  drawChart();
+  $('position').textContent = state.position ? `OPEN · ${short(state.position.token)} · ${sol(state.position.size)} at ${state.position.mark.toLocaleString()} SOL market cap (TP +${state.position.tp}% / SL -${state.position.sl}% / ${state.position.holdMin}m).` : 'No open paper position.';
   const activity = $('activity'); activity.replaceChildren();
   if (!state.history.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No paper trades yet.'; activity.append(li); }
   for (const item of state.history.slice(0, 30)) {
@@ -287,74 +281,15 @@ function connectFeed() {
     ws.addEventListener('message', event => {
       if (socket !== ws) return;
       let data; try { data = JSON.parse(event.data); } catch { return; }
-      if (data && (data.txType === 'buy' || data.txType === 'sell')) { if (state.position && data.mint === state.position.token) { recordTrade(data); onMark(data.marketCapSol); } return; }
+      if (data && (data.txType === 'buy' || data.txType === 'sell')) { if (state.position && data.mint === state.position.token) onMark(data.marketCapSol); return; }
       if (!data || data.txType !== 'create' || typeof data.mint !== 'string' || !data.mint || data.mint.length > 100) return;
       const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
       launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
       if (launches.length > 50) launches.pop(); renderFeed();
-      if ($('rotate').checked && !storageBlocked && !state.position && cap !== null) {
-        $('token').value = data.mint; $('mark').value = String(cap);
-        $('buy').click();
-      }
     });
     ws.addEventListener('error', () => { if (socket === ws) { socket = null; ws.close(); retry(); } });
     ws.addEventListener('close', () => { if (socket !== ws) return; socket = null; retry(); });
   } catch { socket = null; retry(); }
-}
-
-// Live trade terminal: market-cap chart, stats and tape for the open position's observed trades.
-var ticks = [], chartMint = null;
-function recordTrade(d) {
-  const cap = d.marketCapSol;
-  if (typeof cap !== 'number' || !Number.isFinite(cap) || cap <= 0) return;
-  if (chartMint !== d.mint) { ticks = []; chartMint = d.mint; }
-  const amount = typeof d.solAmount === 'number' && Number.isFinite(d.solAmount) ? d.solAmount : null;
-  ticks.push({ t: Date.now(), cap, side: d.txType, sol: amount });
-  if (ticks.length > 300) ticks.shift();
-  drawChart();
-}
-function drawChart() {
-  const p = state && state.position;
-  if (p && chartMint !== p.token) { ticks = []; chartMint = p.token; }
-  const pts = p ? [{ t: p.openedAt || Date.now(), cap: p.mark, side: 'entry', sol: null }, ...ticks] : ticks;
-  const caps = pts.map(x => x.cap);
-  const last = caps.length ? caps[caps.length - 1] : null;
-  const fmt = v => v === null ? '—' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
-  $('chart-token').textContent = p ? short(p.token) : 'No open position';
-  $('chart-last').textContent = fmt(last);
-  $('chart-high').textContent = caps.length ? fmt(Math.max(...caps)) : '—';
-  $('chart-low').textContent = caps.length ? fmt(Math.min(...caps)) : '—';
-  $('chart-change').textContent = p && last !== null ? `${((last / p.mark - 1) * 100).toFixed(2)}%` : '—';
-  $('chart-buys').textContent = String(ticks.filter(x => x.side === 'buy').length);
-  $('chart-sells').textContent = String(ticks.filter(x => x.side === 'sell').length);
-  const tape = $('tape'); tape.replaceChildren();
-  for (const x of ticks.slice(-12).reverse()) {
-    const li = document.createElement('li'); li.className = x.side === 'buy' ? 'green' : 'red';
-    li.textContent = `${new Date(x.t).toLocaleTimeString()} · ${x.side.toUpperCase()} · cap ${fmt(x.cap)} SOL${x.sol !== null ? ` · ${fmt(x.sol)} SOL` : ''}`;
-    tape.append(li);
-  }
-  if (!ticks.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = p ? 'Waiting for live trades on this token…' : 'Open a position from the feed to stream its trades.'; tape.append(li); }
-  const canvas = $('chart'); const ctx = canvas.getContext && canvas.getContext('2d');
-  if (!ctx) return;
-  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth || 600, h = canvas.clientHeight || 220;
-  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
-  ctx.strokeStyle = '#c9c4ae'; ctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(0, h * i / 4); ctx.lineTo(w, h * i / 4); ctx.stroke(); }
-  if (!pts.length) return;
-  const levels = p ? [p.mark, p.mark * (1 + p.tp / 100), p.mark * (1 - p.sl / 100)] : [];
-  const all = caps.concat(levels);
-  let lo = Math.min(...all), hi = Math.max(...all); if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
-  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
-  const y = v => h - (v - lo) / (hi - lo) * h;
-  const x = i => pts.length === 1 ? w / 2 : i / (pts.length - 1) * (w - 8) + 4;
-  if (p) [[levels[1], '#537e13', 'TP'], [levels[0], '#666957', 'ENTRY'], [levels[2], '#a33135', 'SL']].forEach(([v, c, label]) => {
-    ctx.strokeStyle = c; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(0, y(v)); ctx.lineTo(w, y(v)); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = c; ctx.font = '10px sans-serif'; ctx.fillText(`${label} ${fmt(v)}`, 6, y(v) - 3);
-  });
-  ctx.strokeStyle = last !== null && p && last < p.mark ? '#a33135' : '#537e13'; ctx.lineWidth = 2; ctx.beginPath();
-  pts.forEach((pt, i) => { if (i) ctx.lineTo(x(i), y(pt.cap)); else ctx.moveTo(x(i), y(pt.cap)); }); ctx.stroke();
-  pts.forEach((pt, i) => { if (pt.side === 'entry') return; ctx.fillStyle = pt.side === 'buy' ? '#537e13' : '#a33135'; ctx.fillRect(x(i) - 2, y(pt.cap) - 2, 4, 4); });
 }
 
 $('connect').addEventListener('click', () => {
@@ -368,7 +303,6 @@ $('connect').addEventListener('click', () => {
 for (const id of ['token', 'mark', 'size', 'fee', 'share', 'tp', 'sl', 'hold']) {
   $(id).addEventListener('input', persist);
 }
-$('rotate').addEventListener('change', persist);
 window.addEventListener('beforeunload', persist);
 window.addEventListener('online', () => { clearTimeout(retryTimer); retryTimer = null; connectFeed(); });
 
