@@ -86,7 +86,7 @@ tr.sel td{background:#14193a}
 .pills button{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:12px;font-weight:700}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media(max-width:1000px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:760px){.app{grid-template-columns:1fr}.sidebar{display:none}.top .brand{display:flex}.content{padding:0 14px 40px}.ticker{display:none}}
+@media(max-width:760px){.app{grid-template-columns:minmax(0,1fr)}.sidebar{display:none}.top .brand{display:flex}.content{padding:0 14px 40px}.ticker{display:none}}
 </style>
 </head>
 <body>
@@ -178,6 +178,7 @@ tr.sel td{background:#14193a}
         <section class="card" aria-label="Add any position">
           <div class="head"><div><h2>Add any position</h2><p>Track a token that is not in the feed, using the ticket settings.</p></div></div>
           <div class="body"><form class="form" id="manualForm" autocomplete="off">
+            <label class="field">Mint address (optional, gives a live price)<input id="mMint" type="text" maxlength="60" placeholder="Paste a pump.fun mint"></label>
             <div class="row2"><label class="field">Symbol<input id="mSym" type="text" maxlength="12" placeholder="TOKEN"></label><label class="field">Entry market cap (SOL)<input id="mMc" type="number" step="any" min="0" placeholder="30"></label></div>
             <button class="btn" id="manualBtn" type="submit">Add paper position</button>
             <div class="msg" id="mMsg" role="status" aria-live="polite"></div>
@@ -269,102 +270,243 @@ const persist = () => Store.save({paper: App.paper, rotate: App.rotate, wantFeed
 const setMsg = (id, text, bad) => { const el = $(id); el.textContent = text; el.className = 'msg ' + (bad ? 'red' : 'green'); };
 const tokenFor = mint => App.tokens.get(mint);
 const markFor = p => { const t = tokenFor(p.mint); return t && t.mc ? t.mc : p.last; };
-App.seen = 0;
-const FEED_URL = 'wss://pumpportal.fun/api/data';
-const SVGNS = 'http://www.w3.org/2000/svg';
-const el = (tag, cn, text) => { const e = document.createElement(tag); if (cn) e.className = cn; if (text !== undefined) e.textContent = text; return e; };
-const cls = n => (n >= 0 ? 'green' : 'red');
+App.seen = 0; App.timer = null; App.dirty = null;
+const FEED = 'wss://pumpportal.fun/api/data';
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
+const validMc = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
+const sub = msg => { const w = App.ws; if (w && w.readyState === 1) { try { w.send(JSON.stringify(msg)); } catch (e) { /* socket closing */ } } };
+const subTrades = mint => { if (!mint.startsWith('manual-')) sub({method: 'subscribeTokenTrade', keys: [mint]}); };
 
-function ensureToken(mint, name, symbol, mc) {
-  let t = App.tokens.get(mint);
-  if (!t) { t = {mint, name, symbol, mc, hist: []}; App.tokens.set(mint, t); }
-  return t;
-}
-function pushMark(t, mc) {
-  t.mc = mc; t.hist.push([Date.now(), mc]);
-  if (t.hist.length > 400) t.hist.shift();
-}
-App.paper.positions.forEach(p => { const t = ensureToken(p.mint, p.symbol, p.symbol, p.last); if (!t.hist.length) pushMark(t, p.last); });
-if (App.selected && !App.tokens.has(App.selected)) App.selected = null;
-
-function send(o) { if (App.ws && App.ws.readyState === 1) App.ws.send(JSON.stringify(o)); }
-function setFeed(text, live) {
-  $('feedText').textContent = text; $('feedDot').className = 'dot' + (live ? ' live' : '');
-  $('connectBtn').textContent = App.wantFeed ? 'Disconnect live feed' : 'Connect live feed';
-}
-function connect(auto) {
-  let ws;
-  try { ws = new WebSocket(FEED_URL); } catch (e) { setFeed('Feed unavailable', false); return; }
-  App.ws = ws;
-  setFeed(auto ? 'Reconnecting...' : 'Connecting...', false);
-  ws.onopen = () => {
-    App.retry = 0;
-    send({method: 'subscribeNewToken'});
-    const seen = new Set();
-    App.paper.positions.forEach(p => { if (!p.mint.startsWith('manual-') && !seen.has(p.mint)) { seen.add(p.mint); send({method: 'subscribeTokenTrade', keys: [p.mint]}); } });
-    setFeed('Live pump.fun feed', true);
-  };
-  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } handle(m); };
-  ws.onclose = () => {
-    if (App.ws !== ws) return;
-    App.ws = null;
-    if (App.wantFeed) {
-      setFeed('Reconnecting...', false); App.retry++;
-      setTimeout(() => { if (App.wantFeed && !App.ws) connect(true); }, Math.min(15000, 1000 * Math.pow(2, Math.min(App.retry, 4))));
-    } else setFeed('Feed off', false);
-  };
-  ws.onerror = () => { /* onclose follows and handles the retry */ };
-}
-function disconnect() { App.wantFeed = false; const ws = App.ws; App.ws = null; if (ws) ws.close(); setFeed('Feed off', false); }
-
+/* ---------- Trading actions ---------- */
 function readTicket() {
   return {size: Number($('tSize').value), tp: Number($('tTp').value), sl: Number($('tSl').value), holdMin: Number($('tHold').value), fee: Number($('tFee').value)};
 }
-function buy(mint) {
-  const t = App.tokens.get(mint);
-  if (!t || !(t.mc > 0)) throw new Error('No live price for that token yet.');
-  const o = readTicket(); o.mint = mint; o.symbol = t.symbol; o.mark = t.mc;
+function openFrom(t) {
+  const o = Object.assign({mint: t.mint, symbol: t.symbol, mark: t.mc}, readTicket());
   const p = Paper.open(App.paper, o, Date.now());
-  if (!mint.startsWith('manual-')) send({method: 'subscribeTokenTrade', keys: [mint]});
-  App.selected = mint; persist();
+  subTrades(p.mint);
+  App.selected = p.mint;
+  setMsg('tMsg', 'Paper bought ' + p.symbol + ' for ' + p.size + ' SOL at cap ' + p.entry.toFixed(2) + '.');
   return p;
 }
 function closePos(id, mark, reason) {
   const p = App.paper.positions.find(x => x.id === id);
-  if (!p) return;
-  Paper.close(App.paper, id, mark, reason, Date.now());
-  if (!App.paper.positions.some(x => x.mint === p.mint) && !p.mint.startsWith('manual-')) send({method: 'unsubscribeTokenTrade', keys: [p.mint]});
+  if (!p) return 0;
+  const pnl = Paper.close(App.paper, id, mark, reason, Date.now());
+  if (!App.paper.positions.some(x => x.mint === p.mint)) sub({method: 'unsubscribeTokenTrade', keys: [p.mint]});
+  return pnl;
+}
+
+/* ---------- Live feed ---------- */
+function setFeed(text, live) {
+  $('feedText').textContent = text;
+  $('feedDot').className = 'dot' + (live ? ' live' : '');
+  $('connectBtn').textContent = App.wantFeed ? 'Disconnect feed' : 'Connect live feed';
+}
+function connect() {
+  if (App.ws && App.ws.readyState <= 1) return;
+  clearTimeout(App.timer);
+  let ws;
+  try { ws = new WebSocket(FEED); } catch (e) { setFeed('Feed unavailable'); return; }
+  App.ws = ws;
+  ws.onopen = () => {
+    App.retry = 0; setFeed('Live pump.fun feed', true);
+    sub({method: 'subscribeNewToken'});
+    App.paper.positions.forEach(p => subTrades(p.mint));
+  };
+  ws.onmessage = ev => onMessage(ev.data);
+  ws.onerror = () => { /* onclose handles the retry */ };
+  ws.onclose = () => {
+    if (App.ws !== ws) return;
+    App.ws = null;
+    if (App.wantFeed) {
+      setFeed('Reconnecting...');
+      App.timer = setTimeout(connect, Math.min(15000, 1000 * Math.pow(2, App.retry++)));
+    } else setFeed('Feed off');
+  };
+}
+function disconnect() {
+  App.wantFeed = false; clearTimeout(App.timer);
+  const w = App.ws; App.ws = null;
+  if (w) { try { w.close(); } catch (e) { /* already closed */ } }
+  setFeed('Feed off');
+}
+function onMessage(raw) {
+  let d;
+  try { d = JSON.parse(raw); } catch (e) { return; }
+  if (!d || typeof d !== 'object' || typeof d.mint !== 'string') return;
+  const mc = d.marketCapSol;
+  if (d.txType === 'create') {
+    if (!validMc(mc)) return;
+    App.seen++;
+    const t = {mint: d.mint, name: String(d.name || d.symbol || 'Unknown').slice(0, 40), symbol: String(d.symbol || '?').slice(0, 12), mc, hist: [[Date.now(), mc]]};
+    App.tokens.set(d.mint, t);
+    App.order = App.order.filter(m => m !== d.mint); App.order.unshift(d.mint);
+    if (App.order.length > 40) { const old = App.order.pop(); if (!App.paper.positions.some(p => p.mint === old)) App.tokens.delete(old); }
+    if (!App.selected) App.selected = d.mint;
+    if (App.rotate && App.paper.positions.length === 0) {
+      try { openFrom(t); } catch (e) { App.rotate = false; setMsg('tMsg', 'Auto-rotate stopped: ' + e.message, true); }
+    }
+    schedule(); return;
+  }
+  if (d.txType !== 'buy' && d.txType !== 'sell') return;
+  const held = App.paper.positions.filter(p => p.mint === d.mint);
+  let t = App.tokens.get(d.mint);
+  if ((!t && !held.length) || !validMc(mc)) return;
+  if (!t) { t = {mint: d.mint, name: held[0].symbol, symbol: held[0].symbol, mc, hist: []}; App.tokens.set(d.mint, t); }
+  t.mc = mc; t.hist.push([Date.now(), mc]); if (t.hist.length > 600) t.hist.shift();
+  App.trades++;
+  for (const p of held) {
+    p.last = mc;
+    const r = Paper.signal(p, mc, Date.now());
+    if (r) closePos(p.id, mc, r);
+  }
+  schedule();
+}
+function schedule() { if (!App.dirty) App.dirty = setTimeout(() => { App.dirty = null; render(); }, 120); }
+
+/* ---------- Rendering ---------- */
+function setPnl(node, v) { node.textContent = fmt(v) + ' SOL'; node.className = v >= 0 ? 'green' : 'red'; }
+function drawChart(t, p) {
+  const svg = $('chart'); svg.textContent = '';
+  const W = 600, H = 210;
+  let pts = t ? t.hist.slice() : [];
+  if (App.win > 0) { const cut = Date.now() - App.win * 1000; pts = pts.filter(q => q[0] >= cut); }
+  if (pts.length < 2) {
+    const tx = document.createElementNS(NS, 'text');
+    tx.setAttribute('x', W / 2); tx.setAttribute('y', H / 2); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('fill', '#7f8da3');
+    tx.textContent = 'Waiting for live trades...'; svg.appendChild(tx); return;
+  }
+  const levels = p ? [[p.entry, '#f5c76a'], [p.entry * (1 + p.tp / 100), '#35e08a'], [p.entry * (1 - p.sl / 100), '#ff6b7a']] : [];
+  const all = pts.map(q => q[1]).concat(levels.map(l => l[0]));
+  let lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+  if (hi === lo) hi = lo * 1.01 + 1e-9;
+  const t0 = pts[0][0], span = Math.max(1, pts[pts.length - 1][0] - t0);
+  const X = ts => (ts - t0) / span * W, Y = v => H - 8 - (v - lo) / (hi - lo) * (H - 16);
+  for (const l of levels) {
+    const ln = document.createElementNS(NS, 'line');
+    ln.setAttribute('x1', 0); ln.setAttribute('x2', W); ln.setAttribute('y1', Y(l[0])); ln.setAttribute('y2', Y(l[0]));
+    ln.setAttribute('stroke', l[1]); ln.setAttribute('stroke-dasharray', '5 4'); ln.setAttribute('opacity', '.7'); svg.appendChild(ln);
+  }
+  const pl = document.createElementNS(NS, 'polyline');
+  pl.setAttribute('points', pts.map(q => X(q[0]).toFixed(1) + ',' + Y(q[1]).toFixed(1)).join(' '));
+  pl.setAttribute('fill', 'none'); pl.setAttribute('stroke', '#22e0d0'); pl.setAttribute('stroke-width', '2'); svg.appendChild(pl);
+}
+function render() {
+  const s = App.paper;
+  let open = 0;
+  s.positions.forEach(p => { open += Paper.estimate(p, markFor(p)); });
+  $('sBal').textContent = s.balance.toFixed(4) + ' SOL';
+  setPnl($('sOpenPnl'), open); setPnl($('sPnl'), s.realized);
+  $('sCount').textContent = String(s.positions.length);
+  $('tkSeen').textContent = String(App.seen); $('tkTrades').textContent = String(App.trades);
+  $('feedCount').textContent = String(App.seen);
+  $('tRotate').checked = App.rotate;
+  $('closeAllBtn').disabled = s.positions.length === 0;
+
+  const pb = $('posBody'); pb.textContent = '';
+  for (const p of s.positions) {
+    const m = markFor(p), mv = (m / p.entry - 1) * 100, pnl = Paper.estimate(p, m);
+    const tr = el('tr'); tr.setAttribute('data-mint', p.mint); if (p.mint === App.selected) tr.className = 'sel';
+    [p.symbol, p.size.toFixed(2) + ' SOL', p.entry.toFixed(2), m.toFixed(2), fmt(mv, 1) + '%', fmt(pnl) + ' SOL', '+' + p.tp + '% / -' + p.sl + '%'].forEach((txt, i) => {
+      const td = el('td', txt); if (i === 4 || i === 5) td.className = pnl >= 0 ? 'green' : 'red'; tr.appendChild(td);
+    });
+    const td = el('td'); const b = el('button', 'Close', 'btn small sell'); b.type = 'button'; b.setAttribute('data-close', String(p.id)); td.appendChild(b); tr.appendChild(td);
+    pb.appendChild(tr);
+  }
+  $('posEmpty').style.display = s.positions.length ? 'none' : 'block';
+
+  const hb = $('histBody'); hb.textContent = '';
+  for (const h of s.trades) {
+    const tr = el('tr');
+    tr.appendChild(el('td', h.symbol)); tr.appendChild(el('td', h.size.toFixed(2) + ' SOL'));
+    tr.appendChild(el('td', fmt(h.pnl) + ' SOL', h.pnl >= 0 ? 'green' : 'red')); tr.appendChild(el('td', h.reason));
+    hb.appendChild(tr);
+  }
+  $('histEmpty').style.display = s.trades.length ? 'none' : 'block';
+
+  const fl = $('feed'); fl.textContent = '';
+  if (!App.order.length) { const li = el('li', 'Connect the live feed to see launches.', 'muted'); li.id = 'feedEmpty'; fl.appendChild(li); }
+  for (const mint of App.order) {
+    const t = App.tokens.get(mint); if (!t) continue;
+    const li = el('li'); li.setAttribute('data-mint', mint); if (mint === App.selected) li.className = 'sel';
+    li.appendChild(el('div', t.symbol.slice(0, 2).toUpperCase(), 'coin'));
+    const fi = el('div', undefined, 'fi'); fi.appendChild(el('b', t.name)); fi.appendChild(el('small', t.symbol + ' \u00b7 cap ' + t.mc.toFixed(2) + ' SOL')); li.appendChild(fi);
+    const b = el('button', 'Buy', 'btn small go'); b.type = 'button'; b.setAttribute('data-buy', mint); li.appendChild(b);
+    fl.appendChild(li);
+  }
+
+  const t = App.tokens.get(App.selected), p = s.positions.find(x => x.mint === App.selected);
+  if (t || p) {
+    const name = t ? t.name : p.symbol, sym = t ? t.symbol : p.symbol, mc = t ? t.mc : p.last;
+    $('selName').textContent = name; $('selSub').textContent = sym + ' \u00b7 market cap in SOL';
+    $('selMc').textContent = mc.toFixed(2);
+    if (t && t.hist.length > 1) { const c = (t.mc / t.hist[0][1] - 1) * 100; $('selChg').textContent = fmt(c, 1) + '% since first seen'; $('selChg').className = 'change ' + (c >= 0 ? 'green' : 'red'); }
+    else { $('selChg').textContent = '\u00a0'; $('selChg').className = 'change'; }
+    $('tTarget').textContent = 'Buy ' + sym + ' at cap ' + mc.toFixed(2) + ' SOL';
+  } else {
+    $('selName').textContent = 'No token selected'; $('selSub').textContent = 'Pick a launch from the live feed.';
+    $('selMc').textContent = '--'; $('selChg').textContent = '\u00a0'; $('tTarget').textContent = 'Select a token, then buy.';
+  }
+  drawChart(t, p);
   persist();
 }
-function checkExits() {
-  App.paper.positions.slice().forEach(p => {
-    const mark = markFor(p), reason = Paper.signal(p, mark, Date.now());
-    if (reason) closePos(p.id, mark, reason);
-  });
-}
-function handle(m) {
-  if (!m || typeof m !== 'object' || typeof m.mint !== 'string' || !m.mint) return;
-  const mc = Number(m.marketCapSol), ok = Number.isFinite(mc) && mc > 0;
-  if (m.txType === 'create') {
-    App.seen++;
-    const t = ensureToken(m.mint, String(m.name || m.symbol || '?').slice(0, 60), String(m.symbol || '?').slice(0, 12), ok ? mc : 0);
-    if (ok) pushMark(t, mc);
-    if (!App.order.includes(m.mint)) App.order.unshift(m.mint);
-    if (App.order.length > 60) App.order.length = 60;
-    if (ok && App.rotate && App.paper.positions.length === 0) {
-      try { buy(m.mint); } catch (e) { App.rotate = false; $('tRotate').checked = false; persist(); setMsg('tMsg', 'Auto-rotate stopped: ' + e.message, true); }
-    }
-  } else if (m.txType === 'buy' || m.txType === 'sell') {
-    App.trades++;
-    if (!ok) return;
-    const t = App.tokens.get(m.mint);
-    if (t) pushMark(t, mc);
-    App.paper.positions.forEach(p => { if (p.mint === m.mint) p.last = mc; });
-    checkExits(); persist();
-  } else return;
+
+/* ---------- Events ---------- */
+const guard = fn => ev => { try { fn(ev); } catch (e) { setMsg('tMsg', e.message, true); } render(); };
+$('connectBtn').addEventListener('click', () => {
+  if (App.wantFeed) disconnect(); else { App.wantFeed = true; setFeed('Connecting...'); connect(); }
   render();
-}
-/*@@PART5@@*/
+});
+$('feed').addEventListener('click', guard(ev => {
+  const b = ev.target.closest('[data-buy]');
+  if (b) { const t = App.tokens.get(b.getAttribute('data-buy')); if (t) openFrom(t); return; }
+  const li = ev.target.closest('li[data-mint]'); if (li) App.selected = li.getAttribute('data-mint');
+}));
+$('posBody').addEventListener('click', guard(ev => {
+  const b = ev.target.closest('[data-close]');
+  if (b) { const p = App.paper.positions.find(x => String(x.id) === b.getAttribute('data-close')); if (p) closePos(p.id, markFor(p), 'manual'); return; }
+  const tr = ev.target.closest('tr[data-mint]'); if (tr) App.selected = tr.getAttribute('data-mint');
+}));
+$('closeAllBtn').addEventListener('click', guard(() => { App.paper.positions.slice().forEach(p => closePos(p.id, markFor(p), 'manual')); }));
+$('ticketForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  guard(() => {
+    const t = App.tokens.get(App.selected);
+    if (!t) throw new Error('Pick a token from the live feed first.');
+    openFrom(t);
+  })();
+});
+$('manualForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  guard(() => {
+    const sym = $('mSym').value.trim().toUpperCase() || 'TOKEN', mint = $('mMint').value.trim(), mc = Number($('mMc').value);
+    const o = Object.assign({mint: mint || undefined, symbol: sym, mark: mc}, readTicket());
+    const p = Paper.open(App.paper, o, Date.now());
+    if (mint && !App.tokens.has(mint)) App.tokens.set(mint, {mint, name: sym, symbol: sym, mc, hist: [[Date.now(), mc]]});
+    subTrades(p.mint); App.selected = p.mint;
+    $('mSym').value = ''; $('mMc').value = ''; $('mMint').value = '';
+    setMsg('mMsg', 'Added ' + sym + ' at cap ' + mc + ' SOL.');
+  })();
+});
+$('resetBtn').addEventListener('click', guard(() => { App.paper = Paper.create(Date.now()); setMsg('tMsg', 'Paper account reset to 5 SOL.'); }));
+$('tRotate').addEventListener('change', () => { App.rotate = $('tRotate').checked; render(); });
+document.querySelectorAll('.pills button').forEach(b => b.addEventListener('click', () => { $('tSize').value = b.getAttribute('data-size'); }));
+document.querySelectorAll('#tfs button').forEach(b => b.addEventListener('click', () => {
+  App.win = Number(b.getAttribute('data-win'));
+  document.querySelectorAll('#tfs button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+}));
+setInterval(() => {
+  const now = Date.now(); let changed = false;
+  App.paper.positions.slice().forEach(p => { const r = Paper.signal(p, markFor(p), now); if (r) { closePos(p.id, markFor(p), r); changed = true; } });
+  if (changed) render();
+}, 5000);
+
+window.GhostTerminal = {Paper, App, render};
+if (App.wantFeed) { connect(); setFeed('Reconnecting...'); } else setFeed('Feed off');
+render();
 </script>
 </body>
 </html>

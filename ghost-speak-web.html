@@ -88,7 +88,7 @@
     sock.push({txType: 'buy', mint: 'other', marketCapSol: 999}); draw();
     check(ui('sCount').textContent === '1', 'trades for other tokens do not touch the position');
     sock.push({txType: 'buy', mint: 'mintA', marketCapSol: 40}); draw();
-    check(ui('sOpenPnl').textContent === '+0.1405 SOL' && ui('selMc').textContent === '40.00', 'open P&L follows the live market cap');
+    check(ui('sOpenPnl').textContent === '+0.1403 SOL' && ui('selMc').textContent === '40.00', 'open P&L follows the live market cap');
     sock.push({txType: 'buy', mint: 'mintA', marketCapSol: 45}); draw();
     check(ui('sCount').textContent === '0' && ui('sBal').textContent === '5.2203 SOL' && ui('histBody').textContent.includes('take profit'), 'take profit closes the position on a live price');
 
