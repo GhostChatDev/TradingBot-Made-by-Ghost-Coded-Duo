@@ -14,9 +14,7 @@ jobs:
           node-version: 22
       - name: Install Chromium and Playwright
         run: |
-          cat /etc/os-release | head -n 2
           npm install --no-save --no-package-lock playwright@latest
-          npx playwright --version
           npx playwright install --with-deps chromium
       - name: Run browser checks
         run: |
