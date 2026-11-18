@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080b12">
+<title>Ghost Trading | Best Duo</title>
+<style>
+:root{color-scheme:dark;--bg:#080b12;--panel:#101621;--line:#222c3b;--muted:#8996a9;--text:#eef3fa;--green:#a2f56d;--cyan:#6fded1;--yellow:#f8cb70;--red:#fb8c8f}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}a{color:var(--cyan)}.shell{max-width:1580px;margin:auto;padding:0 28px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:23px 0;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:11px}.logo{width:39px;height:39px;border-radius:12px;display:grid;place-items:center;background:var(--green);color:#0b1607;font-size:21px;font-weight:900}.brand strong{display:block;font-size:15px;letter-spacing:.08em}.brand small,.muted{color:var(--muted)}.top-actions,.badges,.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.badge{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:11px;font-weight:700;letter-spacing:.04em}.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}.dot.live{background:var(--green);box-shadow:0 0 10px var(--green)}.button{border:1px solid var(--line);background:#171f2b;color:var(--text);padding:10px 14px;border-radius:8px;font-weight:700}.button:hover:not(:disabled){border-color:#8190a4}.button.primary{background:var(--green);border-color:var(--green);color:#102008}.button.danger{color:#ffc4c4}.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:34px 0 23px}.eyebrow{color:var(--green);font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.hero h1{margin:5px 0;font-size:clamp(27px,3.4vw,42px);letter-spacing:-.045em;line-height:1.1}.hero p{margin:8px 0 0;color:var(--muted)}.notice{border:1px solid #4a3c26;background:#211b13;color:#efce95;border-radius:10px;padding:12px 15px;margin-bottom:22px;font-size:12px}.notice strong{color:#ffe6b4}.grid{display:grid;grid-template-columns:minmax(0,1fr) 335px;gap:18px}.main,.side{display:grid;align-content:start;gap:18px;min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card,.metric{background:var(--panel);border:1px solid var(--line);border-radius:12px}.metric{padding:17px;min-width:0}.metric-label,.label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em}.metric-value{font-size:24px;font-weight:750;letter-spacing:-.04em;margin:7px 0 2px;overflow-wrap:anywhere}.metric small{color:var(--muted);font-size:11px}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:19px 20px;border-bottom:1px solid var(--line)}.card-head h2,.card-head h3{font-size:15px;margin:0;letter-spacing:-.01em}.card-head p{font-size:12px;color:var(--muted);margin:4px 0 0}.card-body{padding:20px}.section-tag{color:var(--green);font-size:10px;letter-spacing:.1em;font-weight:800}.feed{min-height:260px;max-height:495px;overflow:auto}.empty{min-height:260px;display:grid;place-content:center;text-align:center;padding:30px;color:var(--muted)}.empty-icon{font-size:25px;color:#627286}.empty strong{color:#d4ddeb;margin:10px 0 4px}.feed-item{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;text-align:left;border:0;border-bottom:1px solid #1c2633;background:transparent;color:var(--text);padding:14px 20px}.feed-item:hover,.feed-item.selected{background:#18232a}.feed-item strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed-item small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.feed-item .right{text-align:right}.address{font-family:ui-monospace,SFMono-Regular,monospace}.risk-line{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #1e2836}.risk-line:last-child{border:0}.risk-line span:first-child{color:var(--muted)}.green{color:var(--green)}.yellow{color:var(--yellow)}.red{color:var(--red)}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:grid;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:11px;color:var(--muted);font-weight:700}.field input{width:100%;background:#0a1019;color:var(--text);border:1px solid #2a3544;border-radius:8px;padding:10px 11px;min-width:0}.field input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}.hint{color:var(--muted);font-size:11px;margin:11px 0}.trade-actions{display:flex;gap:8px;margin-top:16px}.trade-actions button{flex:1}.position{padding:12px;background:#0a1019;border:1px solid var(--line);border-radius:8px;margin-top:15px;font-size:12px}.activity{list-style:none;padding:0;margin:0}.activity li{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}.activity li:last-child{border:0}.activity small{color:var(--muted);display:block}.footer{display:flex;justify-content:space-between;gap:15px;color:#7d8a9c;font-size:11px;padding:26px 0 30px}.pill{border:1px solid #394a34;color:var(--green);border-radius:50px;padding:4px 8px;font-size:10px;font-weight:800}.status-message{font-size:12px;min-height:18px;margin:12px 0 0;color:var(--yellow)}@media(max-width:1050px){.grid{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.side .wide{grid-column:1/-1}}@media(max-width:650px){.shell{padding:0 16px}.topbar{padding:16px 0}.top-actions .badge{display:none}.hero{align-items:flex-start;flex-direction:column;padding:25px 0 18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.metric-value{font-size:21px}.side{grid-template-columns:1fr}.side .wide{grid-column:auto}.footer{flex-direction:column}.card-head{padding:16px}.card-body{padding:16px}.feed-item{padding:13px 16px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="topbar">
+  <div class="brand"><div class="logo" aria-hidden="true">✦</div><div><strong>GHOST TRADING</strong><small>BEST DUO / COMMAND CENTER</small></div></div>
+  <div class="top-actions"><span class="badge"><span class="dot" id="connection-dot"></span><span id="connection-status">DISCONNECTED</span></span><span class="badge">PAPER MODE</span><button class="button" id="connect">Connect feed ↗</button></div>
+</header>
+<section class="hero"><div><div class="eyebrow">● &nbsp; Your edge starts with discipline</div><h1>Trade smarter. Stay in control.</h1><p>Watch the market move. Test your strategy. Protect your capital.</p></div><span class="pill">✦ &nbsp; BEST DUO TERMINAL</span></section>
+<div class="notice"><strong>Paper trading only.</strong> No wallet, real orders, fee collection, transfers, or E2B are connected. Launch snapshots are not live price quotes. Memecoins can lose all their value.</div>
+<div class="grid"><main class="main">
+<section class="metrics" aria-label="Paper account summary">
+<div class="metric"><div class="metric-label">Paper balance</div><div class="metric-value" id="balance">10.0000 SOL</div><small>Available simulated SOL</small></div>
+<div class="metric"><div class="metric-label">Realized P&amp;L</div><div class="metric-value" id="pnl">0.0000 SOL</div><small>Closed paper trades</small></div>
+<div class="metric"><div class="metric-label">Closed trades</div><div class="metric-value" id="closed">0</div><small>No live performance</small></div>
+<div class="metric"><div class="metric-label">Server allocation</div><div class="metric-value" id="allocation">0.0000 SOL</div><small>Paper calculation only</small></div>
+</section>
+<section class="card"><div class="card-head"><div><h2>New token launches</h2><p>Free PumpPortal creation stream · select a launch to prefill the paper ticket</p></div><span class="section-tag">● &nbsp; LAUNCH FEED</span></div><div class="feed" id="feed"><div class="empty"><div class="empty-icon">◉</div><strong>No launch events yet</strong><span>Connect the feed to watch new launches.<br>Events appear only while this page is open.</span></div></div><div class="card-body hint">Market cap is the provider's launch-time snapshot, not a current price. No token safety checks are performed. <a href="https://pumpportal.fun/data-api/real-time/" target="_blank" rel="noopener noreferrer">Feed docs ↗</a></div></section>
+<section class="card"><div class="card-head"><div><h2>Paper activity</h2><p>Session-only simulated trades · resets on reload</p></div><span class="section-tag">SESSION LOG</span></div><div class="card-body"><ul class="activity" id="activity"><li class="muted">No paper trades yet.</li></ul></div></section>
+</main><aside class="side">
+<section class="card wide"><div class="card-head"><div><h2>Paper trade ticket</h2><p>Manual simulation · no transactions sent</p></div><span class="pill">SIMULATED</span></div><div class="card-body">
+<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
+<p class="hint">Use your own assumed market-cap marks to enter and exit. A 2% per-side cost is illustrative, not a quote. It excludes fixed fees, price impact, failed transactions and taxes.</p>
+<div class="trade-actions"><button class="button primary" id="buy">Open paper position</button><button class="button" id="sell" disabled>Close position</button></div><p class="status-message" id="trade-message" role="status" aria-live="polite"></p><div class="position" id="position">No open paper position.</div>
+</div></section>
+<section class="card"><div class="card-head"><div><h3>Risk guardrails</h3><p>Paper ticket controls</p></div><span class="section-tag">RISK FIRST</span></div><div class="card-body"><div class="risk-line"><span>Exposure</span><strong>1% of starting balance max</strong></div><div class="risk-line"><span>Positions</span><strong>1 at a time</strong></div><div class="risk-line"><span>Entries</span><strong>4 per UTC day</strong></div><div class="risk-line"><span>Daily loss stop</span><strong>3% of start-of-day equity</strong></div><div class="risk-line"><span>Weekly loss stop</span><strong>8% of start-of-week equity</strong></div><p class="hint">Limits reset with the session. Loss stops use realized P&amp;L and are checked only when opening. Manual marks, not executable stop orders.</p></div></section>
+<section class="card"><div class="card-head"><div><h3>Build roadmap</h3><p>Not connected in this version</p></div><span class="section-tag">NEXT UP</span></div><div class="card-body"><div class="risk-line"><span>Strategy &amp; backtesting</span><strong class="yellow">REQUIRED</strong></div><div class="risk-line"><span>Real order execution</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>Fee routing / Ghost Chat</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>E2B integration</span><strong class="muted">FUTURE</strong></div><p class="hint">The launch feed cannot verify holders, bundles, dev sales, liquidity or safe execution. No strategy is automated here.</p></div></section>
+</aside></div><footer class="footer"><span>✦ &nbsp; GHOST TRADING / BUILT FOR THE LONG GAME</span><span>Independent project · Not affiliated with pump.fun or PumpPortal · Not financial advice</span></footer>
+</div>
+<script>
+'use strict';
+// Paper accounting intentionally uses assumed marks rather than executable quotes.
+const Paper = (() => {
+  const INITIAL = 10;
+  const dayKey = date => date.toISOString().slice(0, 10);
+  const weekKey = date => {
+    const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return dayKey(d);
+  };
+  function create(now = new Date()) {
+    return { balance: INITIAL, pnl: 0, allocation: 0, closed: 0, position: null, entries: 0, day: dayKey(now), week: weekKey(now), dayStart: INITIAL, weekStart: INITIAL, dayPnl: 0, weekPnl: 0, history: [] };
+  }
+  function rollover(s, now) {
+    const equityAtCost = s.balance + (s.position ? s.position.size : 0);
+    if (s.day !== dayKey(now)) { s.day = dayKey(now); s.dayStart = equityAtCost; s.dayPnl = 0; s.entries = 0; }
+    if (s.week !== weekKey(now)) { s.week = weekKey(now); s.weekStart = equityAtCost; s.weekPnl = 0; }
+  }
+  function open(s, { token, mark, size, fee }, now = new Date()) {
+    rollover(s, now);
+    if (s.position) throw Error('Close the current paper position first.');
+    if (typeof token !== 'string' || !token.trim()) throw Error('Enter a token or select a launch.');
+    if (!Number.isFinite(mark) || mark <= 0 || !Number.isFinite(size) || size <= 0) throw Error('Enter a positive market cap and position size.');
+    if (!Number.isFinite(fee) || fee < 0 || fee > 25) throw Error('Cost per side must be between 0% and 25%.');
+    if (s.entries >= 4) throw Error('Daily paper entry limit reached.');
+    if (s.dayPnl <= -s.dayStart * 0.03 || s.weekPnl <= -s.weekStart * 0.08) throw Error('Paper loss limit reached; new entries are paused.');
+    if (size > INITIAL * 0.01 + 1e-12) throw Error('Position exceeds the 1% starting-balance exposure cap (0.1 SOL).');
+    if (size > s.balance) throw Error('Not enough paper SOL.');
+    s.balance -= size; s.entries++;
+    s.position = { token: token.trim(), mark, size, fee };
+    s.history.unshift({ kind: 'OPEN', token: s.position.token, value: size, time: now.toISOString() });
+  }
+  function close(s, { mark, fee, share }, now = new Date()) {
+    rollover(s, now);
+    const p = s.position;
+    if (!p) throw Error('No open paper position.');
+    if (!Number.isFinite(mark) || mark <= 0) throw Error('Enter a positive exit market cap.');
+    if (!Number.isFinite(fee) || fee < 0 || fee > 25 || !Number.isFinite(share) || share < 0 || share > 100) throw Error('Check the cost and server share percentages.');
+    const proceeds = p.size * (1 - p.fee / 100) * (mark / p.mark) * (1 - fee / 100);
+    if (!Number.isFinite(proceeds) || !Number.isFinite(s.balance + proceeds)) throw Error('Exit mark is too large to calculate safely.');
+    const result = proceeds - p.size;
+    s.balance += proceeds; s.pnl += result; s.dayPnl += result; s.weekPnl += result; s.closed++;
+    // This allocation is informational; it does not reduce balance or move funds.
+    s.allocation += Math.max(result, 0) * share / 100;
+    s.history.unshift({ kind: 'CLOSE', token: p.token, value: result, time: now.toISOString() });
+    s.position = null;
+    return result;
+  }
+  return { create, open, close };
+})();
+window.Paper = Paper;
+const $ = id => document.getElementById(id);
+const state = Paper.create();
+const launches = [];
+let selected = null;
+let socket = null;
+const number = id => $(id).value.trim() === '' ? NaN : Number($(id).value);
+const sol = value => `${value.toFixed(4)} SOL`;
+const short = value => value.length > 18 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value;
+function render() {
+  $('balance').textContent = sol(state.balance);
+  $('pnl').textContent = `${state.pnl > 0 ? '+' : ''}${sol(state.pnl)}`;
+  $('pnl').className = `metric-value ${state.pnl > 0 ? 'green' : state.pnl < 0 ? 'red' : ''}`;
+  $('closed').textContent = state.closed;
+  $('allocation').textContent = sol(state.allocation);
+  $('buy').disabled = !!state.position;
+  $('sell').disabled = !state.position;
+  $('token').readOnly = !!state.position;
+  $('position').textContent = state.position ? `OPEN · ${short(state.position.token)} · ${sol(state.position.size)} at ${state.position.mark.toLocaleString()} SOL market cap. Change the mark to simulate an exit.` : 'No open paper position.';
+  const activity = $('activity'); activity.replaceChildren();
+  if (!state.history.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No paper trades yet.'; activity.append(li); }
+  for (const item of state.history.slice(0, 30)) {
+    const li = document.createElement('li');
+    const left = document.createElement('span'); left.textContent = `${item.kind} · ${short(item.token)}`;
+    const time = document.createElement('small'); time.textContent = new Date(item.time).toLocaleTimeString(); left.append(time);
+    const right = document.createElement('strong'); right.textContent = `${item.kind === 'CLOSE' && item.value > 0 ? '+' : ''}${sol(item.value)}`;
+    li.append(left, right); activity.append(li);
+  }
+}
+function renderFeed() {
+  const feed = $('feed'); feed.replaceChildren();
+  if (!launches.length) {
+    const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Waiting for launch events…'; feed.append(empty); return;
+  }
+  for (const token of launches) {
+    const button = document.createElement('button'); button.className = `feed-item${selected === token.mint ? ' selected' : ''}`; button.type = 'button';
+    const left = document.createElement('span');
+    const title = document.createElement('strong'); title.textContent = `${token.name} (${token.symbol})`;
+    const address = document.createElement('small'); address.className = 'address'; address.textContent = short(token.mint);
+    left.append(title, address);
+    const right = document.createElement('span'); right.className = 'right';
+    const cap = document.createElement('strong'); cap.textContent = token.cap === null ? '—' : `${token.cap.toLocaleString(undefined, {maximumFractionDigits: 2})} SOL`;
+    const time = document.createElement('small'); time.textContent = `${token.time} · launch snapshot`; right.append(cap, time);
+    button.append(left, right);
+    button.addEventListener('click', () => {
+      if (state.position) { $('trade-message').textContent = 'Close your paper position before selecting another token.'; return; }
+      selected = token.mint; $('token').value = token.mint; $('mark').value = token.cap === null ? '' : String(token.cap); $('trade-message').textContent = 'Launch snapshot selected; enter your own exit mark later.'; renderFeed();
+    });
+    feed.append(button);
+  }
+}
+function connection(status, live) { $('connection-status').textContent = status; $('connection-dot').classList.toggle('live', live); }
+$('connect').addEventListener('click', () => {
+  if (socket) { const current = socket; socket = null; current.close(); connection('DISCONNECTED', false); $('connect').textContent = 'Connect feed ↗'; return; }
+  connection('CONNECTING', false); $('connect').textContent = 'Disconnect';
+  try {
+    const ws = new WebSocket('wss://pumpportal.fun/api/data'); socket = ws;
+    ws.addEventListener('open', () => { if (socket !== ws) return; ws.send(JSON.stringify({method:'subscribeNewToken'})); connection('CONNECTED', true); });
+    ws.addEventListener('message', event => {
+      if (socket !== ws) return;
+      let data; try { data = JSON.parse(event.data); } catch { return; }
+      if (!data || data.txType !== 'create' || typeof data.mint !== 'string' || !data.mint || data.mint.length > 100) return;
+      const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
+      launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
+      if (launches.length > 50) launches.pop(); renderFeed();
+    });
+    ws.addEventListener('error', () => { if (socket === ws) connection('FEED ERROR', false); });
+    ws.addEventListener('close', () => { if (socket !== ws) return; socket = null; connection('DISCONNECTED', false); $('connect').textContent = 'Connect feed ↗'; });
+  } catch { socket = null; connection('FEED ERROR', false); $('connect').textContent = 'Connect feed ↗'; }
+});
+$('buy').addEventListener('click', () => {
+  try { Paper.open(state, { token: $('token').value, mark: number('mark'), size: number('size'), fee: number('fee') }); $('trade-message').textContent = 'Paper position opened. No real trade was sent.'; render(); }
+  catch (error) { $('trade-message').textContent = error.message; }
+});
+$('sell').addEventListener('click', () => {
+  try { Paper.close(state, { mark: number('mark'), fee: number('fee'), share: number('share') }); $('trade-message').textContent = 'Paper position closed. Server allocation is a calculation only; no funds were moved.'; render(); }
+  catch (error) { $('trade-message').textContent = error.message; }
+});
+render();
+</script>
+</body>
+</html>
