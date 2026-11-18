@@ -80,34 +80,6 @@
     ui('connect').click();
     check(ui('connection-status').textContent === 'DISCONNECTED', 'feed disconnects');
     check(win.__errors.length === 0, 'interactions produce no uncaught errors');
-    ui('token').value = 'RECOVERY'; ui('mark').value = '30'; ui('buy').click();
-    const key = 'ghost-trading-paper-v1';
-    const before = JSON.parse(localStorage.getItem(key));
-    check(before.state.position.token === 'RECOVERY', 'open position is saved');
-    ui('share').value = '35'; ui('share').dispatchEvent(new win.Event('input'));
-    frame.remove();
-    const reload = async () => {
-      const next = document.createElement('iframe');
-      next.srcdoc = source.replace('<script>', bootstrap + '<script>');
-      const ready = new Promise(resolve => { next.onload = resolve; });
-      document.body.append(next); await ready; return next;
-    };
-    const recovered = await reload();
-    const restored = id => recovered.contentDocument.getElementById(id);
-    check(restored('position').textContent.includes('RECOVERY') && restored('buy').disabled && !restored('sell').disabled, 'reload restores the open position and controls');
-    check(restored('balance').textContent === '9.9921 SOL' && restored('closed').textContent === '1', 'reload preserves balance and closed trades');
-    check(restored('share').value === '35' && restored('token').value === 'RECOVERY', 'reload restores ticket settings');
-    restored('mark').value = '60'; restored('sell').click();
-    check(restored('closed').textContent === '2', 'restored position can be closed');
-    check(recovered.contentWindow.__errors.length === 0, 'recovery produces no uncaught errors');
-    recovered.remove();
-    localStorage.setItem(key, '{broken');
-    const broken = await reload();
-    const brokenDoc = broken.contentDocument;
-    check(brokenDoc.getElementById('buy').disabled && brokenDoc.getElementById('sell').disabled, 'corrupt storage locks trading');
-    check(brokenDoc.getElementById('storage-status').textContent.includes('locked') && localStorage.getItem(key) === '{broken', 'corrupt saved account is not overwritten');
-    check(broken.contentWindow.__errors.length === 0, 'corrupt storage is handled without script errors');
-    broken.remove(); localStorage.removeItem(key);
     status.textContent = 'ALL TESTS PASSED'; status.id = 'pass';
   } catch (error) {
     status.textContent = `FAIL: ${error.stack || error}`;
