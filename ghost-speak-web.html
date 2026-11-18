@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Ghost Trading browser checks</title></head>
+<body>
+<h1>Ghost Trading browser checks</h1>
+<p id="status">Running…</p>
+<pre id="log"></pre>
+<script>
+(async () => {
+  const log = document.getElementById('log');
+  const status = document.getElementById('status');
+  const check = (ok, message) => { if (!ok) throw new Error(message); log.textContent += `PASS: ${message}\n`; };
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const rejects = (fn, contains) => {
+    try { fn(); } catch (error) { return error.message.includes(contains); }
+    return false;
+  };
+  try {
+    const response = await fetch('./index.html');
+    check(response.ok, 'dashboard loads');
+    const source = await response.text();
+    const bootstrap = `<script>window.__errors=[];window.addEventListener('error',event=>window.__errors.push(event.message));window.addEventListener('unhandledrejection',event=>window.__errors.push(String(event.reason)));<\/script>`;
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'width:375px;height:800px;border:0';
+    frame.srcdoc = source.replace('<script>', bootstrap + '<script>');
+    const loaded = new Promise((resolve, reject) => { frame.onload = resolve; frame.onerror = reject; });
+    document.body.append(frame);
+    await loaded;
+    const win = frame.contentWindow;
+    const doc = frame.contentDocument;
+    check(!!win.Paper, 'paper engine initialized without script errors');
+    check(win.__errors.length === 0, 'page has no uncaught errors');
+    check(doc.querySelector('meta[name="viewport"]') !== null, 'mobile viewport is configured');
+    check(doc.documentElement.scrollWidth <= 375, 'mobile page does not scroll sideways');
+    const { create, open, close } = win.Paper;
+    const date = new Date('2026-11-18T12:00:00Z');
+    const params = {token:'TEST', mark:30, size:0.1, fee:2};
+    const s = create(date);
+    check(rejects(() => open(s, {...params, size:0.11}, date), 'exceeds'), 'exposure cap rejects oversize positions');
+    check(rejects(() => open(s, {...params, mark:0}, date), 'positive'), 'invalid marks are rejected');
+    open(s, params, date);
+    check(near(s.balance, 9.9) && s.entries === 1, 'opening reserves paper balance');
+    check(rejects(() => open(s, params, date), 'Close'), 'only one position is allowed');
+    const pnl = close(s, {mark:60, fee:2, share:20}, date);
+    check(near(pnl, 0.09208) && near(s.balance, 10.09208), 'P&L includes costs on both sides');
+    check(near(s.allocation, 0.018416) && near(s.pnl, pnl), 'server allocation is calculated but not transferred');
+    const loss = create(date);
+    open(loss, params, date);
+    close(loss, {mark:15, fee:2, share:20}, date);
+    check(loss.pnl < 0 && loss.allocation === 0, 'losses do not allocate server funds');
+    const capped = create(date);
+    for (let i = 0; i < 4; i++) { open(capped, params, date); close(capped, {mark:30, fee:0, share:0}, date); }
+    check(rejects(() => open(capped, params, date), 'entry limit'), 'daily entry limit is enforced');
+    open(capped, params, new Date('2026-11-19T00:01:00Z'));
+    check(capped.entries === 1, 'daily entry count resets in UTC');
+    const stopped = create(date); stopped.dayPnl = -0.3;
+    check(rejects(() => open(stopped, params, date), 'loss limit'), 'daily loss limit blocks entries');
+    const weekly = create(date); weekly.weekPnl = -0.8;
+    check(rejects(() => open(weekly, params, date), 'loss limit'), 'weekly loss limit blocks entries');
+    const ui = id => doc.getElementById(id);
+    ui('token').value = 'UI TEST'; ui('mark').value = '30'; ui('size').value = '0.1'; ui('buy').click();
+    check(ui('position').textContent.includes('UI TEST') && ui('buy').disabled, 'paper ticket opens a position');
+    ui('mark').value = '60'; ui('sell').click();
+    check(ui('closed').textContent === '1' && ui('balance').textContent === '10.0921 SOL', 'paper ticket closes with expected balance');
+    class FakeSocket {
+      constructor(url) { this.url = url; this.listeners = {}; FakeSocket.last = this; }
+      addEventListener(type, fn) { this.listeners[type] = fn; }
+      send(data) { this.sent = JSON.parse(data); }
+      close() { if (this.listeners.close) this.listeners.close(); }
+      emit(type, event = {}) { if (this.listeners[type]) this.listeners[type](event); }
+    }
+    win.WebSocket = FakeSocket;
+    ui('connect').click();
+    const socket = FakeSocket.last; socket.emit('open');
+    check(socket.url === 'wss://pumpportal.fun/api/data' && socket.sent.method === 'subscribeNewToken', 'feed subscribes to new launches');
+    socket.emit('message', {data:JSON.stringify({txType:'create', mint:'mint123', name:'<img src=x onerror=alert(1)>', symbol:'TEST', marketCapSol:30})});
+    check(ui('feed').textContent.includes('<img src=x onerror=alert(1)>') && !ui('feed').querySelector('img'), 'untrusted launch names are rendered as text');
+    ui('feed').querySelector('button').click();
+    check(ui('token').value === 'mint123' && ui('mark').value === '30', 'selecting launch prefills paper ticket');
+    ui('connect').click();
+    check(ui('connection-status').textContent === 'DISCONNECTED', 'feed disconnects');
+    check(win.__errors.length === 0, 'interactions produce no uncaught errors');
+    status.textContent = 'ALL TESTS PASSED'; status.id = 'pass';
+  } catch (error) {
+    status.textContent = `FAIL: ${error.stack || error}`;
+    status.id = 'fail';
+    console.error(status.textContent);
+  }
+})();
+</script>
+</body>
+</html>
