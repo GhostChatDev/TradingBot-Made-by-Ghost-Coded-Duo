@@ -140,7 +140,7 @@ tr.sel td{background:#14193a}
     <div class="layout">
       <div class="col">
         <section class="card" aria-label="Selected token chart">
-          <div class="head"><div><h2 id="selName">No token selected</h2><p id="selSub">Pick a launch from the live feed.</p></div><div style="text-align:right"><div class="big" id="selMc">-- <small>SOL</small></div><div class="change" id="selChg">&nbsp;</div></div></div>
+          <div class="head"><div><h2 id="selName">No token selected</h2><p id="selSub">Pick a launch from the live feed.</p></div><div style="text-align:right"><div class="big" id="selMc">--</div><div class="change" id="selChg">&nbsp;</div></div></div>
           <div class="body">
             <svg class="chart" id="chart" viewBox="0 0 600 210" preserveAspectRatio="none" role="img" aria-label="Market cap chart"></svg>
             <div class="tfs" id="tfs" role="group" aria-label="Chart window"><button type="button" data-win="60" class="on">1m</button><button type="button" data-win="300">5m</button><button type="button" data-win="0">All</button></div>
@@ -179,6 +179,7 @@ tr.sel td{background:#14193a}
           <div class="head"><div><h2>Add any position</h2><p>Track a token that is not in the feed, using the ticket settings.</p></div></div>
           <div class="body"><form class="form" id="manualForm" autocomplete="off">
             <div class="row2"><label class="field">Symbol<input id="mSym" type="text" maxlength="12" placeholder="TOKEN"></label><label class="field">Entry market cap (SOL)<input id="mMc" type="number" step="any" min="0" placeholder="30"></label></div>
+            <label class="field">Token mint address (optional, gives a live price)<input id="mMint" type="text" maxlength="44" placeholder="Paste a pump.fun mint"></label>
             <button class="btn" id="manualBtn" type="submit">Add paper position</button>
             <div class="msg" id="mMsg" role="status" aria-live="polite"></div>
           </form></div>
@@ -269,7 +270,263 @@ const persist = () => Store.save({paper: App.paper, rotate: App.rotate, wantFeed
 const setMsg = (id, text, bad) => { const el = $(id); el.textContent = text; el.className = 'msg ' + (bad ? 'red' : 'green'); };
 const tokenFor = mint => App.tokens.get(mint);
 const markFor = p => { const t = tokenFor(p.mint); return t && t.mc ? t.mc : p.last; };
-/*@@PART4@@*/
+App.seen = 0;
+const FEED_URL = 'wss://pumpportal.fun/api/data';
+const MAX_FEED = 40;
+const subscribed = new Set();
+
+/* ---------- Tokens and trading ---------- */
+function ensureToken(mint, symbol, name, mc) {
+  let t = App.tokens.get(mint);
+  if (!t) { t = {mint, symbol, name, mc, first: mc, hist: []}; App.tokens.set(mint, t); }
+  return t;
+}
+function pushHist(t, mc, now) { t.mc = mc; t.hist.push({t: now, mc}); if (t.hist.length > 600) t.hist.shift(); }
+function wsSend(obj) { if (App.ws && App.ws.readyState === 1) { App.ws.send(JSON.stringify(obj)); return true; } return false; }
+function subscribeTrades(mint) { if (!subscribed.has(mint) && wsSend({method: 'subscribeTokenTrade', keys: [mint]})) subscribed.add(mint); }
+function ticket() {
+  return {size: Number($('tSize').value), tp: Number($('tTp').value), sl: Number($('tSl').value), holdMin: Number($('tHold').value), fee: Number($('tFee').value)};
+}
+function buyToken(t) {
+  Paper.open(App.paper, Object.assign(ticket(), {mint: t.mint, symbol: t.symbol, mark: t.mc}), Date.now());
+  App.selected = t.mint;
+  subscribeTrades(t.mint);
+  persist(); scheduleRender();
+}
+function rotateBuy(t) {
+  try { buyToken(t); setMsg('tMsg', 'Auto-rotate bought ' + t.symbol + '.'); }
+  catch (e) {
+    App.rotate = false; $('tRotate').checked = false;
+    setMsg('tMsg', 'Auto-rotate stopped: ' + e.message, true); persist();
+  }
+}
+function sweep(now, mint) {
+  let closed = 0;
+  for (const p of App.paper.positions.slice()) {
+    if (mint && p.mint !== mint) continue;
+    const m = markFor(p), why = Paper.signal(p, m, now);
+    if (why) { Paper.close(App.paper, p.id, m, why, now); closed++; }
+  }
+  if (closed) persist();
+  return closed;
+}
+function closeOne(id) {
+  const p = App.paper.positions.find(x => x.id === id);
+  if (!p) return;
+  Paper.close(App.paper, id, markFor(p), 'manual', Date.now());
+  persist(); render();
+}
+
+/* ---------- Live pump.fun feed (PumpPortal WebSocket) ---------- */
+function setFeed(text, live) {
+  $('feedText').textContent = text;
+  $('feedDot').className = 'dot' + (live ? ' live' : '');
+  $('connectBtn').textContent = App.wantFeed ? 'Disconnect feed' : 'Connect live feed';
+}
+function onMessage(raw) {
+  let m;
+  try { m = JSON.parse(raw); } catch (e) { return; }
+  if (!m || typeof m !== 'object' || typeof m.mint !== 'string') return;
+  const mc = Number(m.marketCapSol), now = Date.now();
+  if (m.txType === 'create') {
+    if (!(mc > 0) || App.tokens.has(m.mint)) return;
+    const t = ensureToken(m.mint, String(m.symbol || '?').slice(0, 12), String(m.name || '').slice(0, 40), mc);
+    pushHist(t, mc, now);
+    App.order.unshift(m.mint); App.seen++;
+    while (App.order.length > MAX_FEED) {
+      const old = App.order.pop();
+      if (old !== App.selected && !App.paper.positions.some(p => p.mint === old)) App.tokens.delete(old);
+    }
+    if (!App.selected) App.selected = m.mint;
+    if (App.rotate && App.paper.positions.length === 0) rotateBuy(t);
+  } else if (m.txType === 'buy' || m.txType === 'sell') {
+    App.trades++;
+    let t = App.tokens.get(m.mint);
+    if (!t) {
+      const held = App.paper.positions.find(p => p.mint === m.mint);
+      if (held) t = ensureToken(m.mint, held.symbol, '', held.entry);
+    }
+    if (!t || !(mc > 0)) return;
+    pushHist(t, mc, now);
+    App.paper.positions.forEach(p => { if (p.mint === m.mint) p.last = mc; });
+    sweep(now, m.mint);
+  }
+  scheduleRender();
+}
+function connect(label) {
+  if (App.ws) { try { App.ws.onclose = null; App.ws.close(); } catch (e) { /* already closed */ } }
+  subscribed.clear();
+  setFeed(label, false);
+  let ws;
+  try { ws = new WebSocket(FEED_URL); } catch (e) { setFeed('Feed unavailable', false); return; }
+  App.ws = ws;
+  ws.onopen = () => {
+    App.retry = 0;
+    setFeed('Live pump.fun feed', true);
+    ws.send(JSON.stringify({method: 'subscribeNewToken'}));
+    App.paper.positions.forEach(p => { if (!p.mint.startsWith('manual-')) subscribeTrades(p.mint); });
+    if (App.selected) subscribeTrades(App.selected);
+  };
+  ws.onmessage = ev => onMessage(ev.data);
+  ws.onclose = () => {
+    subscribed.clear();
+    if (!App.wantFeed) { setFeed('Feed off', false); return; }
+    setFeed('Reconnecting...', false);
+    App.retry++;
+    setTimeout(() => { if (App.wantFeed && App.ws === ws) connect('Reconnecting...'); }, Math.min(15000, 1000 * Math.pow(2, App.retry - 1)));
+  };
+}
+function toggleFeed() {
+  App.wantFeed = !App.wantFeed;
+  persist();
+  if (App.wantFeed) connect('Connecting...');
+  else { if (App.ws) { App.ws.onclose = null; App.ws.close(); App.ws = null; } subscribed.clear(); setFeed('Feed off', false); }
+}
+/* ---------- Rendering ---------- */
+function td(text, cls) { const c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; return c; }
+function svgEl(name, attrs) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function drawChart() {
+  const svg = $('chart');
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const t = tokenFor(App.selected);
+  if (!t || t.hist.length < 2) return;
+  const now = Date.now();
+  let h = App.win ? t.hist.filter(x => now - x.t <= App.win * 1000) : t.hist;
+  if (h.length < 2) h = t.hist.slice(-2);
+  const pos = App.paper.positions.filter(p => p.mint === t.mint);
+  const vals = h.map(x => x.mc);
+  pos.forEach(p => vals.push(p.entry, p.entry * (1 + p.tp / 100), p.entry * (1 - p.sl / 100)));
+  let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  if (hi === lo) { hi += 1; lo -= 1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const t0 = h[0].t, span = Math.max(1, h[h.length - 1].t - t0);
+  const X = x => ((x - t0) / span) * 590 + 5, Y = v => 200 - ((v - lo) / (hi - lo)) * 190;
+  const line = (v, color, label) => {
+    svg.appendChild(svgEl('line', {x1: 0, x2: 600, y1: Y(v), y2: Y(v), stroke: color, 'stroke-dasharray': '4 4', 'stroke-width': 1}));
+    const tx = svgEl('text', {x: 6, y: Y(v) - 3, fill: color, 'font-size': 10}); tx.textContent = label; svg.appendChild(tx);
+  };
+  if (pos[0]) { const p = pos[0]; line(p.entry, '#7f8da3', 'entry'); line(p.entry * (1 + p.tp / 100), '#35e08a', 'TP'); line(p.entry * (1 - p.sl / 100), '#ff6b7a', 'SL'); }
+  const up = h[h.length - 1].mc >= h[0].mc;
+  svg.appendChild(svgEl('polyline', {points: h.map(x => X(x.t).toFixed(1) + ',' + Y(x.mc).toFixed(1)).join(' '), fill: 'none', stroke: up ? '#35e08a' : '#ff6b7a', 'stroke-width': 2.5, 'stroke-linejoin': 'round'}));
+}
+function renderStats() {
+  const s = App.paper;
+  let open = 0;
+  s.positions.forEach(p => { open += Paper.estimate(p, markFor(p)); });
+  $('sBal').textContent = s.balance.toFixed(4) + ' SOL';
+  $('sOpenPnl').textContent = fmt(open) + ' SOL'; $('sOpenPnl').className = open >= 0 ? 'green' : 'red';
+  $('sPnl').textContent = fmt(s.realized) + ' SOL'; $('sPnl').className = s.realized >= 0 ? 'green' : 'red';
+  $('sCount').textContent = String(s.positions.length);
+  $('tkSeen').textContent = String(App.seen); $('tkTrades').textContent = String(App.trades);
+  $('feedCount').textContent = String(App.seen);
+}
+function renderTables() {
+  const s = App.paper;
+  const pb = $('posBody'); pb.textContent = '';
+  s.positions.forEach(p => {
+    const m = markFor(p), pnl = Paper.estimate(p, m), mv = (m / p.entry - 1) * 100, tr = document.createElement('tr');
+    tr.dataset.mint = p.mint; if (p.mint === App.selected) tr.className = 'sel';
+    tr.append(td(p.symbol), td(p.size.toFixed(2)), td(p.entry.toFixed(2)), td(m.toFixed(2)), td(fmt(mv, 1) + '%', mv >= 0 ? 'green' : 'red'), td(fmt(pnl) + ' SOL', pnl >= 0 ? 'green' : 'red'), td('+' + p.tp + '% / -' + p.sl + '%'));
+    const c = document.createElement('td'), b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn small sell'; b.textContent = 'Sell'; b.dataset.close = String(p.id); b.setAttribute('aria-label', 'Sell ' + p.symbol);
+    c.appendChild(b); tr.appendChild(c); pb.appendChild(tr);
+  });
+  $('posEmpty').style.display = s.positions.length ? 'none' : 'block';
+  $('closeAllBtn').disabled = !s.positions.length;
+  const hb = $('histBody'); hb.textContent = '';
+  s.trades.forEach(x => {
+    const tr = document.createElement('tr');
+    tr.append(td(x.symbol), td(x.size.toFixed(2)), td(fmt(x.pnl) + ' SOL', x.pnl >= 0 ? 'green' : 'red'), td(x.reason));
+    hb.appendChild(tr);
+  });
+  $('histEmpty').style.display = s.trades.length ? 'none' : 'block';
+}
+function renderFeed() {
+  const feed = $('feed'); feed.textContent = '';
+  if (!App.order.length) {
+    const li = document.createElement('li'); li.className = 'muted'; li.textContent = App.wantFeed ? 'Waiting for new launches...' : 'Connect the live feed to see launches.'; feed.appendChild(li);
+  }
+  App.order.forEach(mint => {
+    const t = App.tokens.get(mint); if (!t) return;
+    const li = document.createElement('li'); li.dataset.mint = mint; if (mint === App.selected) li.className = 'sel';
+    const coin = document.createElement('div'); coin.className = 'coin'; coin.textContent = t.symbol.slice(0, 3).toUpperCase();
+    const fi = document.createElement('div'); fi.className = 'fi';
+    const b1 = document.createElement('b'); b1.textContent = t.name || t.symbol;
+    const sm = document.createElement('small'); sm.textContent = t.symbol + ' \u00b7 ' + t.mc.toFixed(2) + ' SOL cap';
+    fi.append(b1, sm);
+    const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'btn small go'; bt.textContent = 'Buy'; bt.dataset.buy = mint; bt.setAttribute('aria-label', 'Paper buy ' + t.symbol);
+    li.append(coin, fi, bt); feed.appendChild(li);
+  });
+}
+function renderSelected() {
+  const t = tokenFor(App.selected);
+  if (t && t.mc) {
+    const chg = (t.mc / t.first - 1) * 100;
+    $('selName').textContent = (t.name || t.symbol) + ' (' + t.symbol + ')';
+    $('selSub').textContent = 'Market cap in SOL, live from pump.fun';
+    $('selMc').textContent = t.mc.toFixed(2) + ' SOL';
+    $('selChg').textContent = fmt(chg, 1) + '% since first seen'; $('selChg').className = 'change ' + (chg >= 0 ? 'green' : 'red');
+    $('tTarget').textContent = 'Target: ' + t.symbol + ' at ' + t.mc.toFixed(2) + ' SOL cap';
+  }
+  drawChart();
+}
+function render() { renderStats(); renderTables(); renderFeed(); renderSelected(); }
+let renderTimer = null;
+function scheduleRender() { if (renderTimer) return; renderTimer = setTimeout(() => { renderTimer = null; render(); }, 120); }
+/* ---------- Events ---------- */
+$('connectBtn').addEventListener('click', toggleFeed);
+$('tRotate').checked = App.rotate;
+$('tRotate').addEventListener('change', e => { App.rotate = e.target.checked; persist(); });
+document.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => { $('tSize').value = b.dataset.size; }));
+$('tfs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-win]'); if (!b) return;
+  App.win = Number(b.dataset.win);
+  document.querySelectorAll('#tfs button').forEach(x => x.classList.toggle('on', x === b));
+  drawChart();
+});
+$('feed').addEventListener('click', e => {
+  const buy = e.target.closest('button[data-buy]');
+  const li = e.target.closest('li[data-mint]');
+  if (buy) {
+    const t = App.tokens.get(buy.dataset.buy);
+    if (t) { try { buyToken(t); setMsg('tMsg', 'Bought ' + t.symbol + ' (paper).'); } catch (err) { setMsg('tMsg', err.message, true); } }
+  } else if (li) { App.selected = li.dataset.mint; persist(); render(); }
+});
+$('ticketForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = tokenFor(App.selected);
+  if (!t) { setMsg('tMsg', 'Select a token from the live feed first.', true); return; }
+  try { buyToken(t); setMsg('tMsg', 'Bought ' + t.symbol + ' (paper).'); } catch (err) { setMsg('tMsg', err.message, true); }
+});
+$('manualForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const sym = $('mSym').value.trim().toUpperCase() || 'TOKEN', mc = Number($('mMc').value), mint = $('mMint').value.trim();
+  try {
+    const id = mint || 'manual-' + Date.now();
+    Paper.open(App.paper, Object.assign(ticket(), {mint: id, symbol: sym, mark: mc}), Date.now());
+    const t = ensureToken(id, sym, sym, mc); pushHist(t, mc, Date.now());
+    if (mint) subscribeTrades(mint);
+    App.selected = id; persist(); render(); setMsg('mMsg', 'Added ' + sym + ' (paper).');
+  } catch (err) { setMsg('mMsg', err.message, true); }
+});
+$('posBody').addEventListener('click', e => {
+  const b = e.target.closest('button[data-close]');
+  if (b) { closeOne(Number(b.dataset.close)); return; }
+  const tr = e.target.closest('tr[data-mint]'); if (tr) { App.selected = tr.dataset.mint; render(); }
+});
+$('closeAllBtn').addEventListener('click', () => { App.paper.positions.slice().forEach(p => closeOne(p.id)); });
+$('resetBtn').addEventListener('click', () => { App.paper = Paper.create(Date.now()); persist(); render(); setMsg('tMsg', 'Paper account reset to 5 SOL.'); });
+
+/* ---------- Start ---------- */
+setInterval(() => { if (App.paper.positions.length && sweep(Date.now())) render(); else renderStats(); }, 1000);
+render();
+if (App.wantFeed) connect('Reconnecting...');
+else setFeed('Feed off', false);
+window.Ghost = {App, Paper, onMessage, render, sweep, rotateBuy};
 </script>
 </body>
 </html>
