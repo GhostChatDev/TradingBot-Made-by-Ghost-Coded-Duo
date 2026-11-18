@@ -468,7 +468,7 @@ function renderSelected() {
     const chg = (t.mc / t.first - 1) * 100;
     $('selName').textContent = (t.name || t.symbol) + ' (' + t.symbol + ')';
     $('selSub').textContent = 'Market cap in SOL, live from pump.fun';
-    $('selMc').textContent = t.mc.toFixed(2) + ' SOL';
+    $('selMc').textContent = t.mc.toFixed(2);
     $('selChg').textContent = fmt(chg, 1) + '% since first seen'; $('selChg').className = 'change ' + (chg >= 0 ? 'green' : 'red');
     $('tTarget').textContent = 'Target: ' + t.symbol + ' at ' + t.mc.toFixed(2) + ' SOL cap';
   }
@@ -506,7 +506,7 @@ $('manualForm').addEventListener('submit', e => {
   e.preventDefault();
   const sym = $('mSym').value.trim().toUpperCase() || 'TOKEN', mc = Number($('mMc').value), mint = $('mMint').value.trim();
   try {
-    const id = mint || 'manual-' + Date.now();
+    const id = mint || 'manual-' + App.paper.nextId;
     Paper.open(App.paper, Object.assign(ticket(), {mint: id, symbol: sym, mark: mc}), Date.now());
     const t = ensureToken(id, sym, sym, mc); pushHist(t, mc, Date.now());
     if (mint) subscribeTrades(mint);
@@ -526,7 +526,7 @@ setInterval(() => { if (App.paper.positions.length && sweep(Date.now())) render(
 render();
 if (App.wantFeed) connect('Reconnecting...');
 else setFeed('Feed off', false);
-window.Ghost = {App, Paper, onMessage, render, sweep, rotateBuy};
+window.GhostTerminal = {App, Paper, onMessage, render, sweep, rotateBuy};
 </script>
 </body>
 </html>
