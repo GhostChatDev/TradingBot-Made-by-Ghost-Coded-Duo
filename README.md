@@ -1,4 +1,6 @@
-> **New:** [`terminal.html`](terminal.html) is a full paper-trading terminal (portfolio dashboard, charts, orders, bot, alerts, analytics). See [TERMINAL.md](TERMINAL.md) for the feature list. The pump.fun launch terminal is still at [`index.html`](index.html).
+> **New:** [`pumpbot.html`](pumpbot.html) is a pump.fun paper auto-trading bot (launch scanner, entry filters, take-profit ladder, risk limits, backtester). See [PUMPBOT.md](PUMPBOT.md).
+>
+> [`terminal.html`](terminal.html) is a full paper-trading terminal (portfolio dashboard, charts, orders, bot, alerts, analytics). See [TERMINAL.md](TERMINAL.md) for the feature list. The pump.fun launch terminal is still at [`index.html`](index.html).
 
 A risk-first bot can be built. It should not be expected to make money. On the numbers that exist, almost every new pump.fun coin dies, the people who get paid are mostly the launchers, and a small bot’s edge has to clear a few percent of costs on every round trip before it is even at zero.
 
