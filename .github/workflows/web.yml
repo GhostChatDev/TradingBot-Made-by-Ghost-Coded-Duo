@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -14,7 +14,7 @@ jobs:
           node-version: 22
       - name: Install Chromium and Playwright
         run: |
-          npm install --no-save --no-package-lock playwright@1.55.0
+          npm install --no-save --no-package-lock playwright@latest
           npx playwright install --with-deps chromium
       - name: Run browser checks
         run: |
