@@ -3,372 +3,449 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#e8e3ce">
-<title>Ghost Trading | Best Duo</title>
+<meta name="theme-color" content="#050810">
+<title>Ghost Trading Bot | Live Launch Terminal</title>
 <style>
-:root{color-scheme:dark;--bg:#080b12;--panel:#101621;--line:#222c3b;--muted:#8996a9;--text:#eef3fa;--green:#a2f56d;--cyan:#6fded1;--yellow:#f8cb70;--red:#fb8c8f}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}a{color:var(--cyan)}.shell{max-width:1580px;margin:auto;padding:0 28px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:23px 0;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:11px}.logo{width:39px;height:39px;border-radius:12px;display:grid;place-items:center;background:var(--green);color:#0b1607;font-size:21px;font-weight:900}.brand strong{display:block;font-size:15px;letter-spacing:.08em}.brand small,.muted{color:var(--muted)}.top-actions,.badges,.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.badge{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:11px;font-weight:700;letter-spacing:.04em}.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}.dot.live{background:var(--green);box-shadow:0 0 10px var(--green)}.button{border:1px solid var(--line);background:#171f2b;color:var(--text);padding:10px 14px;border-radius:8px;font-weight:700}.button:hover:not(:disabled){border-color:#8190a4}.button.primary{background:var(--green);border-color:var(--green);color:#102008}.button.danger{color:#ffc4c4}.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:34px 0 23px}.eyebrow{color:var(--green);font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.hero h1{margin:5px 0;font-size:clamp(27px,3.4vw,42px);letter-spacing:-.045em;line-height:1.1}.hero p{margin:8px 0 0;color:var(--muted)}.notice{border:1px solid #4a3c26;background:#211b13;color:#efce95;border-radius:10px;padding:12px 15px;margin-bottom:22px;font-size:12px}.notice strong{color:#ffe6b4}.grid{display:grid;grid-template-columns:minmax(0,1fr) 335px;gap:18px}.main,.side{display:grid;align-content:start;gap:18px;min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card,.metric{background:var(--panel);border:1px solid var(--line);border-radius:12px}.metric{padding:17px;min-width:0}.metric-label,.label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em}.metric-value{font-size:24px;font-weight:750;letter-spacing:-.04em;margin:7px 0 2px;overflow-wrap:anywhere}.metric small{color:var(--muted);font-size:11px}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:19px 20px;border-bottom:1px solid var(--line)}.card-head h2,.card-head h3{font-size:15px;margin:0;letter-spacing:-.01em}.card-head p{font-size:12px;color:var(--muted);margin:4px 0 0}.card-body{padding:20px}.section-tag{color:var(--green);font-size:10px;letter-spacing:.1em;font-weight:800}.feed{min-height:260px;max-height:495px;overflow:auto}.empty{min-height:260px;display:grid;place-content:center;text-align:center;padding:30px;color:var(--muted)}.empty-icon{font-size:25px;color:#627286}.empty strong{color:#d4ddeb;margin:10px 0 4px}.feed-item{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;text-align:left;border:0;border-bottom:1px solid #1c2633;background:transparent;color:var(--text);padding:14px 20px}.feed-item:hover,.feed-item.selected{background:#18232a}.feed-item strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed-item small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.feed-item .right{text-align:right}.address{font-family:ui-monospace,SFMono-Regular,monospace}.risk-line{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #1e2836}.risk-line:last-child{border:0}.risk-line span:first-child{color:var(--muted)}.green{color:var(--green)}.yellow{color:var(--yellow)}.red{color:var(--red)}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:grid;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:11px;color:var(--muted);font-weight:700}.field input{width:100%;background:#0a1019;color:var(--text);border:1px solid #2a3544;border-radius:8px;padding:10px 11px;min-width:0}.field input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}.hint{color:var(--muted);font-size:11px;margin:11px 0}.trade-actions{display:flex;gap:8px;margin-top:16px}.trade-actions button{flex:1}.position{padding:12px;background:#0a1019;border:1px solid var(--line);border-radius:8px;margin-top:15px;font-size:12px}.activity{list-style:none;padding:0;margin:0}.activity li{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}.activity li:last-child{border:0}.activity small{color:var(--muted);display:block}.footer{display:flex;justify-content:space-between;gap:15px;color:#7d8a9c;font-size:11px;padding:26px 0 30px}.pill{border:1px solid #394a34;color:var(--green);border-radius:50px;padding:4px 8px;font-size:10px;font-weight:800}.status-message{font-size:12px;min-height:18px;margin:12px 0 0;color:var(--yellow)}@media(max-width:1050px){.grid{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.side .wide{grid-column:1/-1}}@media(max-width:650px){.shell{padding:0 16px}.topbar{padding:16px 0}.top-actions .badge{display:none}.hero{align-items:flex-start;flex-direction:column;padding:25px 0 18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.metric-value{font-size:21px}.side{grid-template-columns:1fr}.side .wide{grid-column:auto}.footer{flex-direction:column}.card-head{padding:16px}.card-body{padding:16px}.feed-item{padding:13px 16px}}
-:root{color-scheme:light;--bg:#e8e3ce;--panel:#f6f3e7;--line:#c9c4ae;--muted:#666957;--text:#252c21;--green:#537e13;--cyan:#376a45;--yellow:#76531b;--red:#a33135}body{background:var(--bg)}.logo,.button.primary{background:#b5ec67;color:#23320e;border-color:#9bc851}.button{background:#e4e4ce;color:var(--text)}.notice{background:#eee6cd;border-color:#d2bf87;color:#64502b}.notice strong{color:#503a12}.field input,.position{background:#fffdf4;color:var(--text);border-color:var(--line)}.feed-item:hover,.feed-item.selected{background:#e2edce}.empty strong{color:var(--text)}.feed-item,.risk-line,.activity li{border-color:var(--line)}.pill{border-color:#9eb477}.footer{color:var(--muted)}.metrics{grid-template-columns:repeat(5,minmax(0,1fr))}.check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;font-weight:700}.check input{width:18px;height:18px;accent-color:#537e13}@media(max-width:1050px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:650px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+:root{color-scheme:dark;--bg:#050810;--panel:#0b111c;--panel2:#101827;--line:#1b2638;--text:#e9f0fa;--muted:#7f8da3;--teal:#22e0d0;--green:#35e08a;--red:#ff6b7a;--purple:#8b7cff;--yellow:#f5c76a}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(900px 500px at 70% -10%,#0d2a3a55,transparent),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.45}
+a{color:var(--teal)}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+.sidebar{position:sticky;top:0;height:100vh;padding:20px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:18px;background:#070c15}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)}
+.brand svg{width:46px;height:46px;flex:none}
+.brand strong{display:block;font-size:15px;letter-spacing:.04em;line-height:1.1}
+.brand small{color:var(--muted);font-size:10px;letter-spacing:.12em}
+.nav{display:grid;gap:4px}
+.nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--muted);text-decoration:none;font-weight:600}
+.nav a:hover,.nav a.on{background:var(--panel2);color:var(--text)}
+.nav a.on{box-shadow:inset 3px 0 0 var(--purple)}
+.side-card{margin-top:auto;padding:14px;border:1px solid #2b2f58;border-radius:14px;background:linear-gradient(160deg,#1a1840,#0c1020);font-size:12px;color:#b9bdf0}
+.side-card strong{display:block;color:#fff;margin-bottom:2px}
+.content{min-width:0;padding:0 24px 40px}
+.top{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top .brand{display:none}
+.ticker{flex:1;min-width:0;display:flex;gap:18px;overflow:hidden;white-space:nowrap;font-size:12px;color:var(--muted)}
+.ticker b{color:var(--text)}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:12px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.live{background:var(--green);box-shadow:0 0 10px var(--green)}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 14px;border-radius:10px;font-weight:700}
+.btn:hover:not(:disabled){border-color:#4c5d78}
+.btn.primary{background:linear-gradient(135deg,#6a5cff,#8b7cff);border-color:#8b7cff;color:#fff}
+.btn.go{background:linear-gradient(135deg,#19c8b8,#35e08a);border-color:#35e08a;color:#03140f}
+.btn.sell{background:#3a1620;border-color:#ff6b7a88;color:#ffb3bc}
+.btn.small{padding:5px 10px;font-size:12px}
+.notice{margin:16px 0;padding:12px 14px;border:1px solid #3a3a63;border-radius:12px;background:#12132b;color:#c8cbf5;font-size:12px}
+.notice strong{color:#fff}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.stat{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel2),var(--panel))}
+.stat b{display:block;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.layout{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:16px}
+.col{display:grid;gap:16px;align-content:start;min-width:0}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;min-width:0;scroll-margin-top:12px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.head h2{margin:0;font-size:15px}
+.head p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.body{padding:16px 18px}
+.label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.big{font-size:clamp(26px,5vw,36px);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:4px 0}
+.big small{font-size:.5em;color:var(--muted);font-weight:700}
+.change{font-weight:700;font-size:13px}
+.green{color:var(--green)}.red{color:var(--red)}.yellow{color:var(--yellow)}.muted{color:var(--muted)}
+.chart{width:100%;height:210px;display:block;margin-top:10px;border-radius:12px;background:#080d17;border:1px solid var(--line)}
+.tfs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.tfs button{padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-weight:700;font-size:12px}
+.tfs button.on{color:#fff;border-color:var(--purple);background:#1d1b44}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:11px 14px;border-bottom:1px solid #131c2b;white-space:nowrap}
+tr.sel td{background:#14193a}
+.empty{padding:22px 18px;color:var(--muted);text-align:center}
+.feed{list-style:none;margin:0;padding:0;max-height:430px;overflow-y:auto}
+.feed li{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #131c2b}
+.feed li.sel{background:#14193a}
+.coin{width:34px;height:34px;border-radius:10px;flex:none;background:#1d2740;display:grid;place-items:center;font-weight:800;font-size:11px;color:var(--teal);overflow:hidden}
+.coin img{width:100%;height:100%;object-fit:cover}
+.fi{flex:1;min-width:0}
+.fi b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi small{color:var(--muted)}
+.form{display:grid;gap:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:600}
+.field input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#080d17;color:var(--text)}
+.check{display:flex;gap:8px;align-items:center;font-size:13px}
+.msg{min-height:20px;font-size:12px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pills button{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:12px;font-weight:700}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.app{grid-template-columns:1fr}.sidebar{display:none}.top .brand{display:flex}.content{padding:0 14px 40px}.ticker{display:none}}
 </style>
 </head>
 <body>
-<div class="shell">
-<header class="topbar">
-  <div class="brand"><div class="logo" aria-hidden="true">✦</div><div><strong>GHOST TRADING</strong><small>BEST DUO / COMMAND CENTER</small></div></div>
-  <div class="top-actions"><span class="badge"><span class="dot" id="connection-dot"></span><span id="connection-status">DISCONNECTED</span></span><span class="badge" id="storage-status">SAVED ACCOUNT</span><span class="badge">PAPER MODE</span><button class="button" id="connect">Connect feed ↗</button></div>
-</header>
-<section class="hero"><div><div class="eyebrow">● &nbsp; Your edge starts with discipline</div><h1>Trade smarter. Stay in control.</h1><p>Watch the market move. Test your strategy. Protect your capital.</p></div><span class="pill">✦ &nbsp; BEST DUO TERMINAL</span></section>
-<div class="notice"><strong>Paper trading only.</strong> No wallet, real orders, fee collection, transfers, or E2B are connected. Launch snapshots are not live price quotes. Memecoins can lose all their value.</div>
-<div class="grid"><main class="main">
-<section class="metrics" aria-label="Paper account summary">
-<div class="metric"><div class="metric-label">Paper balance</div><div class="metric-value" id="balance">5.0000 SOL</div><small>5 SOL starting paper bankroll</small></div>
-<div class="metric"><div class="metric-label">Open P&amp;L</div><div class="metric-value" id="openpnl">—</div><small id="openmark">No open position</small></div>
-<div class="metric"><div class="metric-label">Realized P&amp;L</div><div class="metric-value" id="pnl">0.0000 SOL</div><small>Closed paper trades</small></div>
-<div class="metric"><div class="metric-label">Closed trades</div><div class="metric-value" id="closed">0</div><small>No live performance</small></div>
-<div class="metric"><div class="metric-label">Server allocation</div><div class="metric-value" id="allocation">0.0000 SOL</div><small>Paper calculation only</small></div>
-</section>
-<section class="card"><div class="card-head"><div><h2>New token launches</h2><p>Free PumpPortal creation stream · select a launch to prefill the paper ticket</p></div><span class="section-tag">● &nbsp; LAUNCH FEED</span></div><div class="feed" id="feed"><div class="empty"><div class="empty-icon">◉</div><strong>No launch events yet</strong><span>Connect the feed to watch new launches.<br>Events appear only while this page is open.</span></div></div><div class="card-body hint">Market cap is the provider's launch-time snapshot, not a current price. No token safety checks are performed. <a href="https://pumpportal.fun/data-api/real-time/" target="_blank" rel="noopener noreferrer">Feed docs ↗</a></div></section>
-<section class="card"><div class="card-head"><div><h2>Paper activity</h2><p>Saved in this browser · persists across reloads</p></div><span class="section-tag">SESSION LOG</span></div><div class="card-body"><ul class="activity" id="activity"><li class="muted">No paper trades yet.</li></ul></div></section>
-</main><aside class="side">
-<section class="card wide"><div class="card-head"><div><h2>Paper trade ticket</h2><p>Manual simulation + live auto-exits · no transactions sent</p></div><span class="pill">SIMULATED</span></div><div class="card-body">
-<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" max="5" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
-<div class="fields" style="margin-top:12px"><div class="field"><label for="tp">Take profit (%)</label><input id="tp" type="number" min="1" max="1000" value="30"></div><div class="field"><label for="sl">Stop loss (%)</label><input id="sl" type="number" min="1" max="90" value="15"></div><div class="field full"><label for="hold">Max hold (minutes)</label><input id="hold" type="number" min="1" max="1440" value="10"></div></div>
-<p class="hint">Up to 5 SOL per position (5 SOL paper bankroll). Auto-exits watch live PumpPortal token trades while connected.</p>
-<label class="check" for="rotate"><input type="checkbox" id="rotate"> Auto-rotate: after an automatic exit, open the next new launch with these settings</label>
-<div class="trade-actions"><button class="button primary" id="buy">Open paper position</button><button class="button" id="sell" disabled>Close position</button></div><div class="trade-actions"><button class="button" id="reset" type="button">Reset paper account to 5 SOL</button></div><p class="status-message" id="trade-message" role="status" aria-live="polite"></p><div class="position" id="position">No open paper position.</div>
-</div></section>
-<section class="card"><div class="card-head"><div><h3>Risk guardrails</h3><p>Paper ticket controls</p></div><span class="section-tag">RISK FIRST</span></div><div class="card-body"><div class="risk-line"><span>Exposure</span><strong>5 SOL max per trade</strong></div><div class="risk-line"><span>Positions</span><strong>1 at a time</strong></div><div class="risk-line"><span>Daily limit</span><strong>None</strong></div><div class="risk-line"><span>Weekly loss stop</span><strong>4 SOL (80%)</strong></div><p class="hint">Saved locally across reloads. Stop orders trigger on the next observed mark and can lose more on gaps.</p></div></section>
-<section class="card"><div class="card-head"><div><h3>Build roadmap</h3><p>Not connected in this version</p></div><span class="section-tag">NEXT UP</span></div><div class="card-body"><div class="risk-line"><span>Strategy &amp; backtesting</span><strong class="yellow">REQUIRED</strong></div><div class="risk-line"><span>Real order execution</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>Fee routing / Ghost Chat</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>E2B integration</span><strong class="muted">FUTURE</strong></div><p class="hint">The launch feed cannot verify holders, bundles, dev sales, liquidity or safe execution.</p></div></section>
-</aside></div><footer class="footer"><span>✦ &nbsp; GHOST TRADING / BUILT FOR THE LONG GAME</span><span>Independent project · Not affiliated with pump.fun or PumpPortal · Not financial advice</span></footer>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="solg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9945ff"/><stop offset="1" stop-color="#14f195"/></linearGradient>
+    <symbol id="ghostlogo" viewBox="0 0 64 64">
+      <title>Ghost Chat half-robot logo with cash and SOL</title>
+      <path d="M10 56V28C10 14 20 6 32 6s22 8 22 22v28l-6-5-5 5-5-5-5 5-5-5-5 5-5-5z" fill="#eef3ff"/>
+      <path d="M32 6c12 0 22 8 22 22v28l-6-5-5 5-5-5-5 5z" fill="#2b3a55"/>
+      <rect x="33" y="19" width="17" height="9" rx="3" fill="#22e0d0"/>
+      <circle cx="41.5" cy="23.5" r="2" fill="#03140f"/>
+      <path d="M33 36h16M33 40h12" stroke="#7f8da3" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M32 3v6" stroke="#22e0d0" stroke-width="2"/><circle cx="32" cy="3" r="2" fill="#22e0d0"/>
+      <ellipse cx="21" cy="24" rx="3.2" ry="4.2" fill="#0b111c"/>
+      <path d="M15 37q6 5 12 0" stroke="#0b111c" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <rect x="1" y="40" width="26" height="14" rx="2" fill="#35e08a" transform="rotate(-12 14 47)"/>
+      <circle cx="14" cy="47" r="4" fill="none" stroke="#03140f" stroke-width="1.5" transform="rotate(-12 14 47)"/>
+      <text x="14" y="50" text-anchor="middle" font-size="7" font-weight="800" fill="#03140f" transform="rotate(-12 14 47)" font-family="Arial">$</text>
+      <circle cx="52" cy="50" r="11" fill="#0b111c" stroke="url(#solg)" stroke-width="2"/>
+      <path d="M46.5 46.2h9.2l1.8 1.8h-9.2zM46.5 53.8h9.2l1.8-1.8h-9.2zM48.3 50h9.2l-1.8 1.8h-9.2z" fill="url(#solg)" transform="translate(-0.5 -1)"/>
+    </symbol>
+  </defs>
+</svg>
+<div class="app">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" href="#top"><svg role="img" aria-label="Ghost Trading Bot logo"><use href="#ghostlogo"/></svg><span><strong>GHOST TRADING</strong><small>PUMP.FUN TERMINAL</small></span></a>
+    <nav class="nav">
+      <a class="on" href="#terminal">Terminal</a>
+      <a href="#feedCard">Live feed</a>
+      <a href="#positions">Positions</a>
+      <a href="#history">History</a>
+      <a href="#ticket">Trade ticket</a>
+    </nav>
+    <div class="side-card"><strong>Paper mode</strong>Live pump.fun prices, simulated fills. No wallet is connected and no real SOL is used.</div>
+  </aside>
+  <main class="content" id="top">
+    <div class="top">
+      <a class="brand" href="#top"><svg role="img" aria-label="Ghost Trading Bot logo"><use href="#ghostlogo"/></svg><strong>GHOST TRADING</strong></a>
+      <div class="ticker" aria-hidden="true"><span>Launches seen <b id="tkSeen">0</b></span><span>Trades seen <b id="tkTrades">0</b></span><span>Mode <b>PAPER</b></span></div>
+      <span class="chip" id="feedChip" role="status"><span class="dot" id="feedDot"></span><span id="feedText">Feed off</span></span>
+      <button class="btn primary" id="connectBtn" type="button">Connect live feed</button>
+    </div>
+    <div class="notice"><strong>Paper trading on the real pump.fun feed.</strong> Prices come live from PumpPortal. Fills, fees and exits are simulated, and real-money trading is not enabled. Passing tests do not show the strategy makes money.</div>
+    <section class="stats" id="terminal" aria-label="Account summary">
+      <div class="stat"><span class="label">Paper balance</span><b id="sBal">5.0000 SOL</b></div>
+      <div class="stat"><span class="label">Open P&amp;L</span><b id="sOpenPnl">+0.0000 SOL</b></div>
+      <div class="stat"><span class="label">Realized P&amp;L</span><b id="sPnl">+0.0000 SOL</b></div>
+      <div class="stat"><span class="label">Open positions</span><b id="sCount">0</b></div>
+    </section>
+    <div class="layout">
+      <div class="col">
+        <section class="card" aria-label="Selected token chart">
+          <div class="head"><div><h2 id="selName">No token selected</h2><p id="selSub">Pick a launch from the live feed.</p></div><div style="text-align:right"><div class="big" id="selMc">-- <small>SOL</small></div><div class="change" id="selChg">&nbsp;</div></div></div>
+          <div class="body">
+            <svg class="chart" id="chart" viewBox="0 0 600 210" preserveAspectRatio="none" role="img" aria-label="Market cap chart"></svg>
+            <div class="tfs" id="tfs" role="group" aria-label="Chart window"><button type="button" data-win="60" class="on">1m</button><button type="button" data-win="300">5m</button><button type="button" data-win="0">All</button></div>
+          </div>
+        </section>
+        <section class="card" id="positions" aria-label="Open positions">
+          <div class="head"><div><h2>Open positions</h2><p>Any number at once, each with its own take profit and stop loss.</p></div><button class="btn small sell" id="closeAllBtn" type="button">Close all</button></div>
+          <div class="tablewrap"><table><thead><tr><th>Token</th><th>Size</th><th>Entry</th><th>Now</th><th>Move</th><th>P&amp;L</th><th>TP / SL</th><th></th></tr></thead><tbody id="posBody"></tbody></table></div>
+          <div class="empty" id="posEmpty">No open positions yet.</div>
+        </section>
+        <section class="card" id="history" aria-label="Closed trades">
+          <div class="head"><div><h2>Closed trades</h2><p>Latest 50, saved in this browser.</p></div></div>
+          <div class="tablewrap"><table><thead><tr><th>Token</th><th>Size</th><th>P&amp;L</th><th>Reason</th></tr></thead><tbody id="histBody"></tbody></table></div>
+          <div class="empty" id="histEmpty">Nothing closed yet.</div>
+        </section>
+      </div>
+      <div class="col">
+        <section class="card" id="feedCard" aria-label="Live pump.fun launches">
+          <div class="head"><div><h2>Live pump.fun launches</h2><p><span id="feedCount">0</span> new tokens this session</p></div></div>
+          <ul class="feed" id="feed"><li class="muted" id="feedEmpty">Connect the live feed to see launches.</li></ul>
+        </section>
+        <section class="card" id="ticket" aria-label="Trade ticket">
+          <div class="head"><div><h2>Trade ticket</h2><p id="tTarget">Select a token, then buy.</p></div></div>
+          <div class="body"><form class="form" id="ticketForm" autocomplete="off">
+            <label class="field">Size (SOL, max 5)<input id="tSize" type="number" step="0.01" min="0.01" max="5" value="0.5"></label>
+            <div class="pills" role="group" aria-label="Quick sizes"><button type="button" data-size="0.25">0.25</button><button type="button" data-size="0.5">0.5</button><button type="button" data-size="1">1</button><button type="button" data-size="2.5">2.5</button><button type="button" data-size="5">5</button></div>
+            <div class="row2"><label class="field">Take profit %<input id="tTp" type="number" step="1" min="1" max="1000" value="40"></label><label class="field">Stop loss %<input id="tSl" type="number" step="1" min="1" max="90" value="20"></label></div>
+            <div class="row2"><label class="field">Max hold (min)<input id="tHold" type="number" step="1" min="1" max="1440" value="15"></label><label class="field">Cost per side %<input id="tFee" type="number" step="0.1" min="0" max="25" value="2"></label></div>
+            <label class="check"><input id="tRotate" type="checkbox"> Auto-rotate: after an exit, buy the next new launch</label>
+            <button class="btn go" id="buyBtn" type="submit">Paper buy</button>
+            <div class="msg" id="tMsg" role="status" aria-live="polite"></div>
+            <button class="btn small" id="resetBtn" type="button">Reset paper account to 5 SOL</button>
+          </form></div>
+        </section>
+        <section class="card" aria-label="Add any position">
+          <div class="head"><div><h2>Add any position</h2><p>Track a token that is not in the feed, using the ticket settings.</p></div></div>
+          <div class="body"><form class="form" id="manualForm" autocomplete="off">
+            <div class="row2"><label class="field">Symbol<input id="mSym" type="text" maxlength="12" placeholder="TOKEN"></label><label class="field">Entry market cap (SOL)<input id="mMc" type="number" step="any" min="0" placeholder="30"></label></div>
+            <button class="btn" id="manualBtn" type="submit">Add paper position</button>
+            <div class="msg" id="mMsg" role="status" aria-live="polite"></div>
+          </form></div>
+        </section>
+      </div>
+    </div>
+  </main>
 </div>
 <script>
 'use strict';
+/* ---------- Paper engine: many positions, 5 SOL cap, no daily limit ---------- */
 const Paper = (() => {
-  const INITIAL = 5;
-  const MAX_SIZE = 5;
-  const WEEK_STOP = 4;
-  const dayKey = date => date.toISOString().slice(0, 10);
-  const weekKey = date => {
-    const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-    return dayKey(d);
-  };
-  function create(now = new Date()) {
-    return { balance: INITIAL, pnl: 0, allocation: 0, closed: 0, position: null, entries: 0, day: dayKey(now), week: weekKey(now), dayStart: INITIAL, weekStart: INITIAL, dayPnl: 0, weekPnl: 0, history: [] };
+  const START = 5, MAX = 5, WEEK_STOP = 4, DAY = 86400000;
+  const num = v => typeof v === 'number' && Number.isFinite(v);
+  const weekKey = now => Math.floor((Math.floor(now / DAY) + 3) / 7);
+  const check = (v, lo, hi, label) => { if (!num(v) || v < lo || v > hi) throw new Error(label + ' must be between ' + lo + ' and ' + hi + '.'); };
+  function create(now) { return {balance: START, realized: 0, weekPnl: 0, week: weekKey(now), positions: [], trades: [], equity: [START], nextId: 1}; }
+  function estimate(p, mark) { const f = 1 - p.fee / 100; return p.size * f * f * (mark / p.entry) - p.size; }
+  function open(s, o, now) {
+    if (weekKey(now) !== s.week) { s.week = weekKey(now); s.weekPnl = 0; }
+    check(o.mark, 1e-9, 1e12, 'Entry market cap');
+    check(o.size, 0.0001, MAX, 'Size');
+    check(o.tp, 1, 1000, 'Take profit'); check(o.sl, 1, 90, 'Stop loss');
+    check(o.holdMin, 1, 1440, 'Max hold'); check(o.fee, 0, 25, 'Cost');
+    if (s.weekPnl <= -WEEK_STOP) throw new Error('Weekly loss limit of 4 SOL reached.');
+    if (o.size > s.balance + 1e-12) throw new Error('Insufficient paper balance.');
+    s.balance -= o.size;
+    const p = {id: s.nextId++, mint: String(o.mint || 'manual-' + s.nextId), symbol: String(o.symbol || 'TOKEN').slice(0, 12), entry: o.mark, last: o.mark, size: o.size, fee: o.fee, tp: o.tp, sl: o.sl, holdMin: o.holdMin, openedAt: now};
+    s.positions.push(p);
+    return p;
   }
-  function rollover(s, now) {
-    const equityAtCost = s.balance + (s.position ? s.position.size : 0);
-    if (s.day !== dayKey(now)) { s.day = dayKey(now); s.dayStart = equityAtCost; s.dayPnl = 0; s.entries = 0; }
-    if (s.week !== weekKey(now)) { s.week = weekKey(now); s.weekStart = equityAtCost; s.weekPnl = 0; }
-  }
-  function open(s, { token, mark, size, fee, tp = 30, sl = 15, holdMin = 10 }, now = new Date()) {
-    rollover(s, now);
-    if (s.position) throw Error('Close the current paper position first.');
-    if (typeof token !== 'string' || !token.trim()) throw Error('Enter a token or select a launch.');
-    if (!Number.isFinite(mark) || mark <= 0 || !Number.isFinite(size) || size <= 0) throw Error('Enter a positive market cap and position size.');
-    if (!Number.isFinite(fee) || fee < 0 || fee > 25) throw Error('Cost per side must be between 0% and 25%.');
-    if (!Number.isFinite(tp) || tp < 1 || tp > 1000) throw Error('Take profit must be between 1% and 1000%.');
-    if (!Number.isFinite(sl) || sl < 1 || sl > 90) throw Error('Stop loss must be between 1% and 90%.');
-    if (!Number.isFinite(holdMin) || holdMin < 1 || holdMin > 1440) throw Error('Max hold must be between 1 and 1440 minutes.');
-    if (s.weekPnl <= -WEEK_STOP) throw Error('Weekly paper loss stop reached; new entries are paused.');
-    if (size > MAX_SIZE + 1e-12) throw Error('Position exceeds the 5 SOL exposure cap.');
-    if (size > s.balance + 1e-12) throw Error('Not enough paper SOL.');
-    s.balance -= size; s.entries++;
-    const openedAt = now.getTime();
-    s.position = { token: token.trim(), mark, lastMark: mark, size, fee, tp, sl, holdMin, openedAt };
-    s.history.unshift({ kind: 'OPEN', token: s.position.token, value: size, time: now.toISOString() });
-  }
-  function exitSignal(p, mark, nowMs = Date.now()) {
-    if (!p || !Number.isFinite(mark) || mark <= 0) return null;
-    if (mark >= p.mark * (1 + (p.tp || 30) / 100) - 1e-12) return 'take-profit';
-    if (mark <= p.mark * (1 - (p.sl || 15) / 100) + 1e-12) return 'stop-loss';
-    if (nowMs - (p.openedAt || 0) >= (p.holdMin || 10) * 60000) return 'time-stop';
+  function signal(p, mark, now) {
+    const move = (mark / p.entry - 1) * 100;
+    if (move >= p.tp) return 'take profit';
+    if (move <= -p.sl) return 'stop loss';
+    if (now - p.openedAt >= p.holdMin * 60000) return 'max hold';
     return null;
   }
-  function close(s, { mark, fee, share }, now = new Date()) {
-    rollover(s, now);
-    const p = s.position;
-    if (!p) throw Error('No open paper position.');
-    if (!Number.isFinite(mark) || mark <= 0) throw Error('Enter a positive exit market cap.');
-    if (!Number.isFinite(fee) || fee < 0 || fee > 25 || !Number.isFinite(share) || share < 0 || share > 100) throw Error('Check the cost and server share percentages.');
-    const proceeds = p.size * (1 - p.fee / 100) * (mark / p.mark) * (1 - fee / 100);
-    if (!Number.isFinite(proceeds) || !Number.isFinite(s.balance + proceeds)) throw Error('Exit mark is too large to calculate safely.');
-    const result = proceeds - p.size;
-    s.balance += proceeds; s.pnl += result; s.dayPnl += result; s.weekPnl += result; s.closed++;
-    s.allocation += Math.max(result, 0) * share / 100;
-    s.history.unshift({ kind: 'CLOSE', token: p.token, value: result, time: now.toISOString() });
-    s.position = null;
-    return result;
+  function close(s, id, mark, reason, now) {
+    const i = s.positions.findIndex(p => p.id === id);
+    if (i < 0) throw new Error('Position not found.');
+    const p = s.positions[i];
+    check(mark, 1e-9, 1e12, 'Exit market cap');
+    const pnl = estimate(p, mark);
+    s.balance += p.size + pnl; s.realized += pnl; s.weekPnl += pnl;
+    s.positions.splice(i, 1);
+    s.trades.unshift({symbol: p.symbol, size: p.size, pnl, reason, at: now});
+    s.trades.length = Math.min(s.trades.length, 50);
+    s.equity.push(s.balance); if (s.equity.length > 120) s.equity.shift();
+    return pnl;
   }
-  function openPnl(p, mark, fee) {
-    if (!p || !Number.isFinite(mark) || mark <= 0) return 0;
-    return p.size * (1 - p.fee / 100) * (mark / p.mark) * (1 - fee / 100) - p.size;
-  }
-  return { create, open, close, exitSignal, openPnl, INITIAL, MAX_SIZE, WEEK_STOP };
+  return {START, MAX, create, open, close, estimate, signal};
 })();
-window.Paper = Paper;
+
+/* ---------- Storage ---------- */
+const KEY = 'ghost-terminal-v2';
+const Store = {
+  load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !d.paper || !Array.isArray(d.paper.positions) || typeof d.paper.balance !== 'number') return null;
+      return d;
+    } catch (e) { return null; }
+  },
+  save(d) { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { /* storage full or blocked */ } }
+};
+
+/* ---------- App state ---------- */
+const saved = Store.load();
+const App = {
+  paper: saved ? saved.paper : Paper.create(Date.now()),
+  rotate: !!(saved && saved.rotate),
+  wantFeed: !!(saved && saved.wantFeed),
+  pendingRotate: false,
+  tokens: new Map(),
+  order: [],
+  selected: saved && saved.selected ? saved.selected : null,
+  trades: 0,
+  win: 60,
+  ws: null,
+  retry: 0
+};
 const $ = id => document.getElementById(id);
-const STORAGE_KEY = 'ghost-trading-paper-v1';
-let state = Paper.create();
-let wantsFeed = false;
-let storageBlocked = false;
-let storageWarning = '';
-const launches = [];
-let selected = null;
-let socket = null;
-let watched = null;
-let retryTimer = null, watchdog = null, retries = 0;
-const number = id => $(id).value.trim() === '' ? NaN : Number($(id).value);
-const sol = value => `${value.toFixed(4)} SOL`;
-const short = value => value.length > 18 ? `${value.slice(0, 7)}…${value.slice(-5)}` : value;
-
-function loadSaved() {
+const fmt = (n, d) => (n >= 0 ? '+' : '') + n.toFixed(d === undefined ? 4 : d);
+const persist = () => Store.save({paper: App.paper, rotate: App.rotate, wantFeed: App.wantFeed, selected: App.selected});
+const setMsg = (id, text, bad) => { const el = $(id); el.textContent = text; el.className = 'msg ' + (bad ? 'red' : 'green'); };
+const tokenFor = mint => App.tokens.get(mint);
+const markFor = p => { const t = tokenFor(p.mint); return t && t.mc ? t.mc : p.last; };
+/* ---------- Ticket ---------- */
+function ticket() {
+  return {size: parseFloat($('tSize').value), tp: parseFloat($('tTp').value), sl: parseFloat($('tSl').value), holdMin: parseFloat($('tHold').value), fee: parseFloat($('tFee').value)};
+}
+function openPosition(t, msgId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !parsed.state || typeof parsed.state !== 'object') throw Error('Invalid state');
-    const s = parsed.state;
-    if (!Number.isFinite(s.balance) || s.balance < 0 || !Number.isFinite(s.pnl) || !Number.isFinite(s.allocation) || !Number.isFinite(s.closed) || !Array.isArray(s.history)) throw Error('Corrupt balance');
-    if (s.position !== null) {
-      const p = s.position;
-      if (!p || typeof p.token !== 'string' || !p.token.trim() || !Number.isFinite(p.mark) || p.mark <= 0 || !Number.isFinite(p.size) || p.size <= 0) throw Error('Corrupt position');
-      p.lastMark = Number.isFinite(p.lastMark) && p.lastMark > 0 ? p.lastMark : p.mark;
-      p.tp = Number.isFinite(p.tp) && p.tp >= 1 ? p.tp : 30;
-      p.sl = Number.isFinite(p.sl) && p.sl >= 1 ? p.sl : 15;
-      p.holdMin = Number.isFinite(p.holdMin) && p.holdMin >= 1 ? p.holdMin : 10;
-      p.openedAt = Number.isFinite(p.openedAt) ? p.openedAt : Date.now();
-    }
-    state = { ...Paper.create(), ...s };
-    wantsFeed = !!parsed.wantsFeed;
-    $('rotate').checked = !!parsed.rotate;
-    const t = parsed.ticket || {};
-    if (typeof t.token === 'string') $('token').value = t.token;
-    if (t.mark !== undefined) $('mark').value = String(t.mark);
-    if (t.size !== undefined) $('size').value = String(t.size);
-    if (t.fee !== undefined) $('fee').value = String(t.fee);
-    if (t.share !== undefined) $('share').value = String(t.share);
-    if (t.tp !== undefined) $('tp').value = String(t.tp);
-    if (t.sl !== undefined) $('sl').value = String(t.sl);
-    if (t.hold !== undefined) $('hold').value = String(t.hold);
-    if (state.position) {
-      $('token').value = state.position.token;
-      $('mark').value = String(state.position.lastMark || state.position.mark);
-      $('size').value = String(state.position.size);
-      $('fee').value = String(state.position.fee);
-      $('tp').value = String(state.position.tp);
-      $('sl').value = String(state.position.sl);
-      $('hold').value = String(state.position.holdMin);
-    }
-  } catch {
-    storageBlocked = true;
-    storageWarning = 'Saved paper account is unreadable; trading is locked so stored data is not overwritten.';
-    $('storage-status').textContent = 'STORAGE LOCKED';
-  }
-}
-
-function persist() {
-  if (storageBlocked) return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      state,
-      wantsFeed,
-      rotate: $('rotate').checked,
-      ticket: {
-        token: $('token').value,
-        mark: $('mark').value,
-        size: $('size').value,
-        fee: $('fee').value,
-        share: $('share').value,
-        tp: $('tp').value,
-        sl: $('sl').value,
-        hold: $('hold').value
-      }
-    }));
-  } catch {}
-}
-
-function watchPosition() {
-  if (!socket || socket.readyState !== 1) return;
-  const next = state.position ? state.position.token : null;
-  if (watched && watched !== next) {
-    try { socket.send(JSON.stringify({ method: 'unsubscribeTokenTrade', keys: [watched] })); } catch {}
-    watched = null;
-  }
-  if (next && watched !== next) {
-    try { socket.send(JSON.stringify({ method: 'subscribeTokenTrade', keys: [next] })); watched = next; } catch {}
-  }
-}
-
-function render() {
-  $('balance').textContent = sol(state.balance);
-  $('pnl').textContent = `${state.pnl > 0 ? '+' : ''}${sol(state.pnl)}`;
-  $('pnl').className = `metric-value ${state.pnl > 0 ? 'green' : state.pnl < 0 ? 'red' : ''}`;
-  $('closed').textContent = state.closed;
-  $('allocation').textContent = sol(state.allocation);
-  const op = state.position;
-  if (op) {
-    const mk = op.lastMark || op.mark, est = Paper.openPnl(op, mk, op.fee);
-    $('openpnl').textContent = `${est > 0 ? '+' : ''}${sol(est)} (${((mk / op.mark - 1) * 100).toFixed(1)}%)`;
-    $('openpnl').className = `metric-value ${est > 0 ? 'green' : est < 0 ? 'red' : ''}`;
-    $('openmark').textContent = `Mark ${mk.toLocaleString()} SOL cap · est. after costs`;
-  } else {
-    $('openpnl').textContent = '—'; $('openpnl').className = 'metric-value'; $('openmark').textContent = 'No open position';
-  }
-  $('buy').disabled = storageBlocked || !!state.position;
-  $('sell').disabled = storageBlocked || !state.position;
-  $('token').readOnly = storageBlocked || !!state.position;
-  $('position').textContent = state.position ? `OPEN · ${short(state.position.token)} · ${sol(state.position.size)} at ${state.position.mark.toLocaleString()} SOL market cap (TP +${state.position.tp}% / SL -${state.position.sl}% / ${state.position.holdMin}m).` : 'No open paper position.';
-  const activity = $('activity'); activity.replaceChildren();
-  if (!state.history.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No paper trades yet.'; activity.append(li); }
-  for (const item of state.history.slice(0, 30)) {
-    const li = document.createElement('li');
-    const left = document.createElement('span'); left.textContent = `${item.kind} · ${short(item.token)}`;
-    const time = document.createElement('small'); time.textContent = new Date(item.time).toLocaleTimeString(); left.append(time);
-    const right = document.createElement('strong'); right.textContent = `${item.kind === 'CLOSE' && item.value > 0 ? '+' : ''}${sol(item.value)}`;
-    li.append(left, right); activity.append(li);
-  }
-  watchPosition();
-}
-
-function renderFeed() {
-  const feed = $('feed'); feed.replaceChildren();
-  if (!launches.length) {
-    const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = 'Waiting for launch events…'; feed.append(empty); return;
-  }
-  for (const token of launches) {
-    const button = document.createElement('button'); button.className = `feed-item${selected === token.mint ? ' selected' : ''}`; button.type = 'button';
-    const left = document.createElement('span');
-    const title = document.createElement('strong'); title.textContent = `${token.name} (${token.symbol})`;
-    const address = document.createElement('small'); address.className = 'address'; address.textContent = short(token.mint);
-    left.append(title, address);
-    const right = document.createElement('span'); right.className = 'right';
-    const cap = document.createElement('strong'); cap.textContent = token.cap === null ? '—' : `${token.cap.toLocaleString(undefined, {maximumFractionDigits: 2})} SOL`;
-    const time = document.createElement('small'); time.textContent = `${token.time} · launch snapshot`; right.append(cap, time);
-    button.append(left, right);
-    button.addEventListener('click', () => {
-      if (state.position) { $('trade-message').textContent = 'Close your paper position before selecting another token.'; return; }
-      selected = token.mint; $('token').value = token.mint; $('mark').value = token.cap === null ? '' : String(token.cap); $('trade-message').textContent = 'Launch snapshot selected; live trades will auto-exit while connected.'; persist(); renderFeed();
-    });
-    feed.append(button);
-  }
-}
-
-function autoClose(reason, mark) {
-  if (storageBlocked || !state.position) return;
-  const fee = state.position.fee, share = number('share');
-  try {
-    Paper.close(state, {mark, fee, share: Number.isFinite(share) && share >= 0 && share <= 100 ? share : 0});
-    $('trade-message').textContent = `Paper auto ${reason} at ${mark} SOL market cap. No funds moved; stale marks are not executable quotes.`;
+    const p = Paper.open(App.paper, Object.assign(ticket(), {mint: t.mint, symbol: t.symbol, mark: t.mc}), Date.now());
+    setMsg(msgId, 'Opened ' + p.size + ' SOL paper position in ' + p.symbol + '.');
+    if (App.ws && App.ws.readyState === 1) App.ws.send(JSON.stringify({method: 'subscribeTokenTrade', keys: [t.mint]}));
     persist(); render();
-    if ($('rotate').checked) { pendingRotate = true; tryRotate(); }
-  } catch (error) { $('trade-message').textContent = error.message; }
+    return p;
+  } catch (e) { setMsg(msgId, e.message, true); return null; }
 }
-
-let pendingRotate = false;
-function tryRotate() {
-  if (!pendingRotate || storageBlocked || state.position || !$('rotate').checked) return;
-  const next = launches.find(l => l.cap !== null && !state.history.some(h => h.token === l.mint));
-  if (!next) { $('trade-message').textContent = 'Auto-rotate: waiting for the next new launch…'; return; }
-  try {
-    Paper.open(state, { token: next.mint, mark: next.cap, size: number('size'), fee: number('fee'), tp: number('tp'), sl: number('sl'), holdMin: number('hold') });
-    pendingRotate = false; selected = next.mint;
-    $('token').value = next.mint; $('mark').value = String(next.cap);
-    $('trade-message').textContent = `Auto-rotate opened a paper position in ${short(next.mint)}. No real trade was sent.`;
-    persist(); render(); renderFeed();
-  } catch (error) {
-    pendingRotate = false; $('rotate').checked = false; persist();
-    $('trade-message').textContent = `Auto-rotate stopped: ${error.message}`;
-  }
-}
-
-function onMark(mark) {
-  const p = state.position;
-  if (storageBlocked || !p || !Number.isFinite(mark) || mark <= 0) return;
-  p.lastMark = mark; $('mark').value = mark;
-  const reason = Paper.exitSignal(p, mark);
-  if (reason) autoClose(reason, mark); else { persist(); render(); }
-}
-
-setInterval(() => { const p = state.position; if (p && Date.now() - p.openedAt >= p.holdMin * 60000) autoClose('time-stop (last observed mark)', p.lastMark); }, 1000);
-
-function connection(status, live) { $('connection-status').textContent = status; $('connection-dot').classList.toggle('live', live); }
-
-function retry() {
-  clearTimeout(watchdog);
-  if (!wantsFeed || retryTimer !== null) return;
-  connection('RECONNECTING', false);
-  retryTimer = setTimeout(() => { retryTimer = null; connectFeed(); }, Math.min(30000, 1000 * 2 ** Math.min(retries++, 5)));
-}
-
-function connectFeed() {
-  if (!wantsFeed || socket) return;
-  connection('CONNECTING', false); $('connect').textContent = 'Disconnect';
-  try {
-    const ws = new WebSocket('wss://pumpportal.fun/api/data'); socket = ws;
-    watchdog = setTimeout(() => { if (socket === ws) { socket = null; ws.close(); retry(); } }, 15000);
-    ws.addEventListener('open', () => {
-      if (socket !== ws) return;
-      clearTimeout(watchdog); retries = 0;
-      ws.send(JSON.stringify({method:'subscribeNewToken'}));
-      connection('CONNECTED', true);
-      watched = null; watchPosition();
-    });
-    ws.addEventListener('message', event => {
-      if (socket !== ws) return;
-      let data; try { data = JSON.parse(event.data); } catch { return; }
-      if (data && (data.txType === 'buy' || data.txType === 'sell')) { if (state.position && data.mint === state.position.token) onMark(data.marketCapSol); return; }
-      if (!data || data.txType !== 'create' || typeof data.mint !== 'string' || !data.mint || data.mint.length > 100) return;
-      const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
-      launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
-      if (launches.length > 50) launches.pop(); renderFeed(); tryRotate();
-    });
-    ws.addEventListener('error', () => { if (socket === ws) { socket = null; ws.close(); retry(); } });
-    ws.addEventListener('close', () => { if (socket !== ws) return; socket = null; retry(); });
-  } catch { socket = null; retry(); }
-}
-
-$('connect').addEventListener('click', () => {
-  wantsFeed = !wantsFeed; persist();
-  if (wantsFeed) { connectFeed(); return; }
-  clearTimeout(retryTimer); retryTimer = null; clearTimeout(watchdog); retries = 0;
-  const current = socket; socket = null; watched = null; if (current) current.close();
-  connection('DISCONNECTED', false); $('connect').textContent = 'Connect feed ↗';
-});
-
-for (const id of ['token', 'mark', 'size', 'fee', 'share', 'tp', 'sl', 'hold']) {
-  $(id).addEventListener('input', persist);
-}
-$('rotate').addEventListener('change', () => { if (!$('rotate').checked) pendingRotate = false; persist(); });
-$('reset').addEventListener('click', () => {
-  if (storageBlocked) return;
-  state = Paper.create(); pendingRotate = false; watched = null;
-  $('trade-message').textContent = 'Paper account reset to 5 SOL.';
+function closePosition(id, reason) {
+  const p = App.paper.positions.find(x => x.id === id);
+  if (!p) return;
+  Paper.close(App.paper, id, markFor(p), reason, Date.now());
+  if (App.rotate && reason !== 'manual') App.pendingRotate = true;
   persist(); render();
-});
-window.addEventListener('beforeunload', persist);
-window.addEventListener('online', () => { clearTimeout(retryTimer); retryTimer = null; connectFeed(); });
+}
+function checkExits() {
+  const now = Date.now();
+  for (const p of App.paper.positions.slice()) {
+    const mark = markFor(p);
+    p.last = mark;
+    const why = Paper.signal(p, mark, now);
+    if (why) closePosition(p.id, why);
+  }
+}
 
-$('buy').addEventListener('click', () => {
-  if (storageBlocked) return;
-  try {
-    Paper.open(state, { token: $('token').value, mark: number('mark'), size: number('size'), fee: number('fee'), tp: number('tp'), sl: number('sl'), holdMin: number('hold') });
-    $('trade-message').textContent = 'Paper position opened. No real trade was sent.';
-    persist(); render();
-  } catch (error) { $('trade-message').textContent = error.message; }
-});
-$('sell').addEventListener('click', () => {
-  if (storageBlocked) return;
-  try {
-    Paper.close(state, { mark: number('mark'), fee: number('fee'), share: number('share') });
-    $('trade-message').textContent = 'Paper position closed. Server allocation is a calculation only; no funds were moved.';
-    persist(); render();
-  } catch (error) { $('trade-message').textContent = error.message; }
-});
+/* ---------- Live feed (PumpPortal, public pump.fun data) ---------- */
+function setFeed(state, text) {
+  $('feedDot').className = 'dot' + (state === 'live' ? ' live' : '');
+  $('feedText').textContent = text;
+  $('connectBtn').textContent = state === 'off' ? 'Connect live feed' : 'Disconnect';
+}
+function connect() {
+  if (App.ws) return;
+  App.wantFeed = true; persist();
+  setFeed('wait', 'Connecting...');
+  let ws;
+  try { ws = new WebSocket('wss://pumpportal.fun/api/data'); } catch (e) { setFeed('off', 'Feed error'); return; }
+  App.ws = ws;
+  ws.onopen = () => {
+    App.retry = 0; setFeed('live', 'Live pump.fun');
+    ws.send(JSON.stringify({method: 'subscribeNewToken'}));
+    const keys = App.paper.positions.map(p => p.mint).filter(m => !m.startsWith('manual-'));
+    if (keys.length) ws.send(JSON.stringify({method: 'subscribeTokenTrade', keys}));
+  };
+  ws.onmessage = ev => { try { handle(JSON.parse(ev.data)); } catch (e) { /* ignore malformed frame */ } };
+  ws.onclose = () => {
+    App.ws = null;
+    if (App.wantFeed) {
+      setFeed('wait', 'Reconnecting...');
+      App.retry += 1;
+      setTimeout(connect, Math.min(1000 * App.retry, 8000));
+    } else setFeed('off', 'Feed off');
+  };
+  ws.onerror = () => { try { ws.close(); } catch (e) { /* already closed */ } };
+}
+function disconnect() {
+  App.wantFeed = false; persist();
+  if (App.ws) App.ws.close(); else setFeed('off', 'Feed off');
+}
+function handle(m) {
+  if (!m || typeof m.mint !== 'string') return;
+  const mc = typeof m.marketCapSol === 'number' && m.marketCapSol > 0 ? m.marketCapSol : null;
+  const now = Date.now();
+  let t = App.tokens.get(m.mint);
+  if (m.txType === 'create') {
+    t = {mint: m.mint, symbol: String(m.symbol || '?').slice(0, 12), name: String(m.name || m.symbol || 'Unnamed').slice(0, 40), mc: mc, hist: [], buys: 0, sells: 0, seenAt: now};
+    App.tokens.set(m.mint, t); App.order.unshift(m.mint);
+    if (App.order.length > 60) App.tokens.delete(App.order.pop());
+    if (!App.selected) App.selected = m.mint;
+    if (App.pendingRotate && mc) { App.pendingRotate = false; openPosition(t, 'tMsg'); }
+  } else if (t && mc) {
+    t.mc = mc;
+    if (m.txType === 'buy') t.buys += 1; else if (m.txType === 'sell') t.sells += 1;
+  } else return;
+  App.trades += 1;
+  if (mc) { t.hist.push({t: now, mc: mc}); if (t.hist.length > 400) t.hist.shift(); }
+  checkExits();
+  render();
+}
 
-loadSaved();
+/* ---------- Rendering ---------- */
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
+function drawChart(t) {
+  const svg = $('chart');
+  if (!t || t.hist.length < 2) { svg.innerHTML = '<text x="300" y="105" fill="#7f8da3" text-anchor="middle" font-size="14">Waiting for live trades...</text>'; return; }
+  const cutoff = App.win ? Date.now() - App.win * 1000 : 0;
+  let pts = t.hist.filter(h => h.t >= cutoff);
+  if (pts.length < 2) pts = t.hist.slice(-2);
+  const pos = App.paper.positions.filter(p => p.mint === t.mint);
+  const vals = pts.map(h => h.mc);
+  pos.forEach(p => { vals.push(p.entry, p.entry * (1 + p.tp / 100), p.entry * (1 - p.sl / 100)); });
+  const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), span = hi - lo || 1;
+  const t0 = pts[0].t, tn = pts[pts.length - 1].t - t0 || 1;
+  const X = h => ((h.t - t0) / tn) * 590 + 5, Y = v => 200 - ((v - lo) / span) * 190;
+  const line = pts.map(h => X(h).toFixed(1) + ',' + Y(h.mc).toFixed(1)).join(' ');
+  let g = '<polyline fill="none" stroke="#22e0d0" stroke-width="2" points="' + line + '"/>';
+  pos.forEach(p => {
+    [[p.entry, '#8b7cff', 'entry'], [p.entry * (1 + p.tp / 100), '#35e08a', 'TP'], [p.entry * (1 - p.sl / 100), '#ff6b7a', 'SL']].forEach(l => {
+      const y = Y(l[0]).toFixed(1);
+      g += '<line x1="0" x2="600" y1="' + y + '" y2="' + y + '" stroke="' + l[1] + '" stroke-dasharray="5 4" opacity=".8"/><text x="6" y="' + (y - 3) + '" fill="' + l[1] + '" font-size="11">' + l[2] + '</text>';
+    });
+  });
+  svg.innerHTML = g;
+}
+function render() {
+  const s = App.paper;
+  const open = s.positions.reduce((a, p) => a + Paper.estimate(p, markFor(p)), 0);
+  $('sBal').textContent = s.balance.toFixed(4) + ' SOL';
+  $('sOpenPnl').textContent = fmt(open) + ' SOL'; $('sOpenPnl').className = open >= 0 ? 'green' : 'red';
+  $('sPnl').textContent = fmt(s.realized) + ' SOL'; $('sPnl').className = s.realized >= 0 ? 'green' : 'red';
+  $('sCount').textContent = String(s.positions.length);
+  $('tkSeen').textContent = String(App.order.length); $('tkTrades').textContent = String(App.trades);
+  $('feedCount').textContent = String(App.order.length);
+  $('tRotate').checked = App.rotate;
+  $('posEmpty').hidden = s.positions.length > 0; $('histEmpty').hidden = s.trades.length > 0;
+  $('posBody').innerHTML = s.positions.map(p => {
+    const mk = markFor(p), pnl = Paper.estimate(p, mk), mv = (mk / p.entry - 1) * 100;
+    return '<tr><td><b>' + esc(p.symbol) + '</b></td><td>' + p.size.toFixed(3) + ' SOL</td><td>' + p.entry.toFixed(2) + '</td><td>' + mk.toFixed(2) + '</td><td class="' + (mv >= 0 ? 'green' : 'red') + '">' + fmt(mv, 1) + '%</td><td class="' + (pnl >= 0 ? 'green' : 'red') + '">' + fmt(pnl) + '</td><td>+' + p.tp + '% / -' + p.sl + '%</td><td><button class="btn small sell" type="button" data-close="' + p.id + '">Sell</button></td></tr>';
+  }).join('');
+  $('histBody').innerHTML = s.trades.map(t => '<tr><td><b>' + esc(t.symbol) + '</b></td><td>' + t.size.toFixed(3) + ' SOL</td><td class="' + (t.pnl >= 0 ? 'green' : 'red') + '">' + fmt(t.pnl) + '</td><td>' + esc(t.reason) + '</td></tr>').join('');
+  const fe = $('feed');
+  fe.innerHTML = App.order.length ? App.order.map(m => {
+    const t = App.tokens.get(m);
+    return '<li class="' + (m === App.selected ? 'sel' : '') + '"><div class="coin">' + esc(t.symbol.slice(0, 3).toUpperCase()) + '</div><div class="fi"><b>' + esc(t.name) + '</b><small>' + esc(t.symbol) + ' &middot; ' + (t.mc ? t.mc.toFixed(1) + ' SOL mc' : 'no price') + '</small></div><button class="btn small" type="button" data-pick="' + esc(m) + '">View</button><button class="btn small go" type="button" data-buy="' + esc(m) + '">Buy</button></li>';
+  }).join('') : '<li class="muted" id="feedEmpty">Connect the live feed to see launches.</li>';
+  const sel = tokenFor(App.selected);
+  $('selName').textContent = sel ? sel.name + ' (' + sel.symbol + ')' : 'No token selected';
+  $('selSub').textContent = sel ? sel.buys + ' buys / ' + sel.sells + ' sells seen' : 'Pick a launch from the live feed.';
+  $('selMc').innerHTML = sel && sel.mc ? sel.mc.toFixed(2) + ' <small>SOL mc</small>' : '-- <small>SOL</small>';
+  const first = sel && sel.hist.length ? sel.hist[0].mc : 0;
+  $('selChg').textContent = sel && sel.mc && first ? fmt((sel.mc / first - 1) * 100, 1) + '% since first seen' : '\u00a0';
+  $('tTarget').textContent = sel ? 'Target: ' + sel.name + ' at ' + (sel.mc ? sel.mc.toFixed(2) : '--') + ' SOL' : 'Select a token, then buy.';
+  drawChart(sel);
+}
+
+/* ---------- Events ---------- */
+$('connectBtn').addEventListener('click', () => { if (App.wantFeed || App.ws) disconnect(); else connect(); });
+$('ticketForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = tokenFor(App.selected);
+  if (!t || !t.mc) { setMsg('tMsg', 'Select a token with a live price first.', true); return; }
+  openPosition(t, 'tMsg');
+});
+$('manualForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const sym = $('mSym').value.trim().toUpperCase() || 'TOKEN', mc = parseFloat($('mMc').value);
+  const mint = 'manual-' + sym + '-' + Date.now();
+  if (!(mc > 0)) { setMsg('mMsg', 'Enter an entry market cap above 0.', true); return; }
+  const t = {mint: mint, symbol: sym, name: sym, mc: mc, hist: [{t: Date.now(), mc: mc}], buys: 0, sells: 0, seenAt: Date.now()};
+  App.tokens.set(mint, t);
+  if (openPosition(t, 'mMsg')) { App.selected = mint; render(); }
+});
+$('tRotate').addEventListener('change', e => { App.rotate = e.target.checked; if (!App.rotate) App.pendingRotate = false; persist(); });
+$('resetBtn').addEventListener('click', () => { App.paper = Paper.create(Date.now()); App.pendingRotate = false; persist(); render(); setMsg('tMsg', 'Paper account reset to 5 SOL.'); });
+$('closeAllBtn').addEventListener('click', () => { App.paper.positions.slice().forEach(p => closePosition(p.id, 'manual')); });
+$('posBody').addEventListener('click', e => { const b = e.target.closest('[data-close]'); if (b) closePosition(Number(b.dataset.close), 'manual'); });
+$('feed').addEventListener('click', e => {
+  const pick = e.target.closest('[data-pick]'), buy = e.target.closest('[data-buy]');
+  if (pick) { App.selected = pick.dataset.pick; persist(); render(); }
+  if (buy) { App.selected = buy.dataset.buy; const t = tokenFor(App.selected); if (t && t.mc) openPosition(t, 'tMsg'); else setMsg('tMsg', 'No live price yet.', true); render(); }
+});
+document.querySelector('.pills').addEventListener('click', e => { const b = e.target.closest('[data-size]'); if (b) $('tSize').value = b.dataset.size; });
+$('tfs').addEventListener('click', e => {
+  const b = e.target.closest('[data-win]'); if (!b) return;
+  App.win = Number(b.dataset.win);
+  Array.from($('tfs').children).forEach(c => c.classList.toggle('on', c === b));
+  render();
+});
+setInterval(() => { if (App.paper.positions.length) { checkExits(); render(); } }, 1000);
+window.__ghost = {App, Paper, handle, render, connect, closePosition, openPosition, checkExits};
 render();
-if (storageWarning) $('trade-message').textContent = storageWarning;
-if (wantsFeed) connectFeed();
+if (App.wantFeed) connect();
 </script>
 </body>
 </html>
