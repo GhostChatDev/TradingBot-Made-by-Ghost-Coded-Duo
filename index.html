@@ -21,6 +21,7 @@
 <div class="grid"><main class="main">
 <section class="metrics" aria-label="Paper account summary">
 <div class="metric"><div class="metric-label">Paper balance</div><div class="metric-value" id="balance">5.0000 SOL</div><small>5 SOL starting paper bankroll</small></div>
+<div class="metric"><div class="metric-label">Open P&amp;L</div><div class="metric-value" id="open-pnl">—</div><small>Est. after costs, last mark</small></div>
 <div class="metric"><div class="metric-label">Realized P&amp;L</div><div class="metric-value" id="pnl">0.0000 SOL</div><small>Closed paper trades</small></div>
 <div class="metric"><div class="metric-label">Closed trades</div><div class="metric-value" id="closed">0</div><small>No live performance</small></div>
 <div class="metric"><div class="metric-label">Server allocation</div><div class="metric-value" id="allocation">0.0000 SOL</div><small>Paper calculation only</small></div>
@@ -29,14 +30,13 @@
 <section class="card"><div class="card-head"><div><h2>Paper activity</h2><p>Saved in this browser · persists across reloads</p></div><span class="section-tag">SESSION LOG</span></div><div class="card-body"><ul class="activity" id="activity"><li class="muted">No paper trades yet.</li></ul></div></section>
 </main><aside class="side">
 <section class="card wide"><div class="card-head"><div><h2>Paper trade ticket</h2><p>Manual simulation + live auto-exits · no transactions sent</p></div><span class="pill">SIMULATED</span></div><div class="card-body">
-<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" max="5" step="any" value="0.5"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
+<div class="fields"><div class="field full"><label for="token">Token / mint</label><input id="token" maxlength="100" placeholder="Select a launch or enter a label"></div><div class="field"><label for="mark">Assumed market cap (SOL)</label><input id="mark" type="number" min="0" step="any" placeholder="e.g. 30"></div><div class="field"><label for="size">Position size (SOL)</label><input id="size" type="number" min="0" max="5" step="any" value="0.1"></div><div class="field"><label for="fee">Cost per side (%)</label><input id="fee" type="number" min="0" max="25" step="0.1" value="2"></div><div class="field"><label for="share">Server share of profit (%)</label><input id="share" type="number" min="0" max="100" step="1" value="20"></div></div>
 <div class="fields" style="margin-top:12px"><div class="field"><label for="tp">Take profit (%)</label><input id="tp" type="number" min="1" max="1000" value="30"></div><div class="field"><label for="sl">Stop loss (%)</label><input id="sl" type="number" min="1" max="90" value="15"></div><div class="field full"><label for="hold">Max hold (minutes)</label><input id="hold" type="number" min="1" max="1440" value="10"></div></div>
 <p class="hint">Up to 5 SOL per position (5 SOL paper bankroll). Auto-exits watch live PumpPortal token trades while connected.</p>
-<label class="row hint" for="rotate"><input id="rotate" type="checkbox"> Auto-rotate: after each exit, open the next new launch with this ticket (paper only)</label>
-<div class="position" id="live-pnl" aria-live="polite">Open P&amp;L: —</div>
+<label class="row hint" for="rotate"><input type="checkbox" id="rotate"> Auto-rotate: after each exit, open the next new launch with this ticket (paper only, feed must be connected)</label>
 <div class="trade-actions"><button class="button primary" id="buy">Open paper position</button><button class="button" id="sell" disabled>Close position</button></div><p class="status-message" id="trade-message" role="status" aria-live="polite"></p><div class="position" id="position">No open paper position.</div>
 </div></section>
-<section class="card"><div class="card-head"><div><h3>Risk guardrails</h3><p>Paper ticket controls</p></div><span class="section-tag">RISK FIRST</span></div><div class="card-body"><div class="risk-line"><span>Exposure</span><strong>5 SOL max per trade</strong></div><div class="risk-line"><span>Positions</span><strong>1 at a time</strong></div><div class="risk-line"><span>Entries</span><strong>No daily limit</strong></div><div class="risk-line"><span>Exits</span><strong>TP / SL / max hold</strong></div><p class="hint">Saved locally across reloads. Stop orders trigger on the next observed mark and can lose more on gaps.</p></div></section>
+<section class="card"><div class="card-head"><div><h3>Risk guardrails</h3><p>Paper ticket controls</p></div><span class="section-tag">RISK FIRST</span></div><div class="card-body"><div class="risk-line"><span>Exposure</span><strong>5 SOL max per trade</strong></div><div class="risk-line"><span>Positions</span><strong>1 at a time</strong></div><div class="risk-line"><span>Entries</span><strong>No daily limit</strong></div><div class="risk-line"><span>Weekly loss stop</span><strong>4 SOL (80%)</strong></div><p class="hint">Saved locally across reloads. Stop orders trigger on the next observed mark and can lose more on gaps.</p><button class="button" id="reset" type="button">Reset paper account to 5 SOL</button></div></section>
 <section class="card"><div class="card-head"><div><h3>Build roadmap</h3><p>Not connected in this version</p></div><span class="section-tag">NEXT UP</span></div><div class="card-body"><div class="risk-line"><span>Strategy &amp; backtesting</span><strong class="yellow">REQUIRED</strong></div><div class="risk-line"><span>Real order execution</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>Fee routing / Ghost Chat</span><strong class="muted">OFFLINE</strong></div><div class="risk-line"><span>E2B integration</span><strong class="muted">FUTURE</strong></div><p class="hint">The launch feed cannot verify holders, bundles, dev sales, liquidity or safe execution.</p></div></section>
 </aside></div><footer class="footer"><span>✦ &nbsp; GHOST TRADING / BUILT FOR THE LONG GAME</span><span>Independent project · Not affiliated with pump.fun or PumpPortal · Not financial advice</span></footer>
 </div>
@@ -45,6 +45,7 @@
 const Paper = (() => {
   const INITIAL = 5;
   const MAX_SIZE = 5;
+  const WEEKLY_STOP = 4;
   const dayKey = date => date.toISOString().slice(0, 10);
   const weekKey = date => {
     const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -68,6 +69,7 @@ const Paper = (() => {
     if (!Number.isFinite(tp) || tp < 1 || tp > 1000) throw Error('Take profit must be between 1% and 1000%.');
     if (!Number.isFinite(sl) || sl < 1 || sl > 90) throw Error('Stop loss must be between 1% and 90%.');
     if (!Number.isFinite(holdMin) || holdMin < 1 || holdMin > 1440) throw Error('Max hold must be between 1 and 1440 minutes.');
+    if (s.weekPnl <= -WEEKLY_STOP) throw Error('Weekly paper loss limit reached; new entries are paused.');
     if (size > MAX_SIZE + 1e-12) throw Error('Position exceeds the 5 SOL exposure cap.');
     if (size > s.balance + 1e-12) throw Error('Not enough paper SOL.');
     s.balance -= size; s.entries++;
@@ -97,7 +99,14 @@ const Paper = (() => {
     s.position = null;
     return result;
   }
-  return { create, open, close, exitSignal, INITIAL, MAX_SIZE };
+  function unrealized(p) {
+    if (!p) return null;
+    const last = Number.isFinite(p.lastMark) && p.lastMark > 0 ? p.lastMark : p.mark;
+    const move = (last / p.mark - 1) * 100;
+    const pnl = p.size * (1 - p.fee / 100) * (last / p.mark) * (1 - p.fee / 100) - p.size;
+    return { last, move, pnl };
+  }
+  return { create, open, close, exitSignal, unrealized, INITIAL, MAX_SIZE };
 })();
 window.Paper = Paper;
 const $ = id => document.getElementById(id);
@@ -134,6 +143,7 @@ function loadSaved() {
     }
     state = { ...Paper.create(), ...s };
     wantsFeed = !!parsed.wantsFeed;
+    $('rotate').checked = !!parsed.rotate;
     const t = parsed.ticket || {};
     if (typeof t.token === 'string') $('token').value = t.token;
     if (t.mark !== undefined) $('mark').value = String(t.mark);
@@ -165,6 +175,7 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       state,
       wantsFeed,
+      rotate: $('rotate').checked,
       ticket: {
         token: $('token').value,
         mark: $('mark').value,
@@ -200,7 +211,11 @@ function render() {
   $('buy').disabled = storageBlocked || !!state.position;
   $('sell').disabled = storageBlocked || !state.position;
   $('token').readOnly = storageBlocked || !!state.position;
-  $('position').textContent = state.position ? `OPEN · ${short(state.position.token)} · ${sol(state.position.size)} at ${state.position.mark.toLocaleString()} SOL market cap (TP +${state.position.tp}% / SL -${state.position.sl}% / ${state.position.holdMin}m).` : 'No open paper position.';
+  const live = Paper.unrealized(state.position);
+  $('position').textContent = state.position ? `OPEN · ${short(state.position.token)} · ${sol(state.position.size)} at ${state.position.mark.toLocaleString()} SOL market cap (TP +${state.position.tp}% / SL -${state.position.sl}% / ${state.position.holdMin}m). Now ${live.last.toLocaleString(undefined, {maximumFractionDigits: 2})} SOL (${live.move >= 0 ? '+' : ''}${live.move.toFixed(1)}%) · est. P&L ${live.pnl > 0 ? '+' : ''}${sol(live.pnl)} after costs.` : 'No open paper position.';
+  $('position').className = `position ${live ? (live.pnl > 0 ? 'green' : live.pnl < 0 ? 'red' : '') : ''}`;
+  $('open-pnl').textContent = live ? `${live.pnl > 0 ? '+' : ''}${sol(live.pnl)}` : '—';
+  $('open-pnl').className = `metric-value ${live ? (live.pnl > 0 ? 'green' : live.pnl < 0 ? 'red' : '') : ''}`;
   const activity = $('activity'); activity.replaceChildren();
   if (!state.history.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No paper trades yet.'; activity.append(li); }
   for (const item of state.history.slice(0, 30)) {
@@ -256,6 +271,19 @@ function onMark(mark) {
 
 setInterval(() => { const p = state.position; if (p && Date.now() - p.openedAt >= p.holdMin * 60000) autoClose('time-stop (last observed mark)', p.lastMark); }, 1000);
 
+function autoRotate(token) {
+  if (storageBlocked || state.position || !$('rotate').checked) return;
+  try {
+    Paper.open(state, { token: token.mint, mark: token.cap, size: number('size'), fee: number('fee'), tp: number('tp'), sl: number('sl'), holdMin: number('hold') });
+    selected = token.mint; $('token').value = token.mint; $('mark').value = String(token.cap);
+    $('trade-message').textContent = `Auto-rotate opened ${short(token.mint)} at its launch snapshot. Paper only.`;
+    persist(); render(); renderFeed();
+  } catch (error) {
+    $('rotate').checked = false; persist();
+    $('trade-message').textContent = `Auto-rotate paused: ${error.message}`;
+  }
+}
+
 function connection(status, live) { $('connection-status').textContent = status; $('connection-dot').classList.toggle('live', live); }
 
 function retry() {
@@ -286,6 +314,7 @@ function connectFeed() {
       const cap = typeof data.marketCapSol === 'number' && Number.isFinite(data.marketCapSol) && data.marketCapSol > 0 ? data.marketCapSol : null;
       launches.unshift({ mint: data.mint, name: typeof data.name === 'string' ? data.name.slice(0, 80) : 'Unknown', symbol: typeof data.symbol === 'string' ? data.symbol.slice(0, 20) : '—', cap, time: new Date().toLocaleTimeString() });
       if (launches.length > 50) launches.pop(); renderFeed();
+      if (cap !== null) autoRotate(launches[0]);
     });
     ws.addEventListener('error', () => { if (socket === ws) { socket = null; ws.close(); retry(); } });
     ws.addEventListener('close', () => { if (socket !== ws) return; socket = null; retry(); });
@@ -303,6 +332,16 @@ $('connect').addEventListener('click', () => {
 for (const id of ['token', 'mark', 'size', 'fee', 'share', 'tp', 'sl', 'hold']) {
   $(id).addEventListener('input', persist);
 }
+$('rotate').addEventListener('change', () => {
+  persist();
+  $('trade-message').textContent = $('rotate').checked ? 'Auto-rotate on: the next launch opens after each exit (needs the feed connected).' : 'Auto-rotate off.';
+});
+$('reset').addEventListener('click', () => {
+  if (storageBlocked || state.position) { $('trade-message').textContent = 'Close the open position before resetting.'; return; }
+  if (!window.confirm('Reset the paper account to 5 SOL? Trade history will be cleared.')) return;
+  state = Paper.create(); persist(); render();
+  $('trade-message').textContent = 'Paper account reset to 5 SOL.';
+});
 window.addEventListener('beforeunload', persist);
 window.addEventListener('online', () => { clearTimeout(retryTimer); retryTimer = null; connectFeed(); });
 
