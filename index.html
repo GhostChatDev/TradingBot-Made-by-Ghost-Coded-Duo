@@ -269,7 +269,102 @@ const persist = () => Store.save({paper: App.paper, rotate: App.rotate, wantFeed
 const setMsg = (id, text, bad) => { const el = $(id); el.textContent = text; el.className = 'msg ' + (bad ? 'red' : 'green'); };
 const tokenFor = mint => App.tokens.get(mint);
 const markFor = p => { const t = tokenFor(p.mint); return t && t.mc ? t.mc : p.last; };
-/*@@PART4@@*/
+App.seen = 0;
+const FEED_URL = 'wss://pumpportal.fun/api/data';
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (tag, cn, text) => { const e = document.createElement(tag); if (cn) e.className = cn; if (text !== undefined) e.textContent = text; return e; };
+const cls = n => (n >= 0 ? 'green' : 'red');
+
+function ensureToken(mint, name, symbol, mc) {
+  let t = App.tokens.get(mint);
+  if (!t) { t = {mint, name, symbol, mc, hist: []}; App.tokens.set(mint, t); }
+  return t;
+}
+function pushMark(t, mc) {
+  t.mc = mc; t.hist.push([Date.now(), mc]);
+  if (t.hist.length > 400) t.hist.shift();
+}
+App.paper.positions.forEach(p => { const t = ensureToken(p.mint, p.symbol, p.symbol, p.last); if (!t.hist.length) pushMark(t, p.last); });
+if (App.selected && !App.tokens.has(App.selected)) App.selected = null;
+
+function send(o) { if (App.ws && App.ws.readyState === 1) App.ws.send(JSON.stringify(o)); }
+function setFeed(text, live) {
+  $('feedText').textContent = text; $('feedDot').className = 'dot' + (live ? ' live' : '');
+  $('connectBtn').textContent = App.wantFeed ? 'Disconnect live feed' : 'Connect live feed';
+}
+function connect(auto) {
+  let ws;
+  try { ws = new WebSocket(FEED_URL); } catch (e) { setFeed('Feed unavailable', false); return; }
+  App.ws = ws;
+  setFeed(auto ? 'Reconnecting...' : 'Connecting...', false);
+  ws.onopen = () => {
+    App.retry = 0;
+    send({method: 'subscribeNewToken'});
+    const seen = new Set();
+    App.paper.positions.forEach(p => { if (!p.mint.startsWith('manual-') && !seen.has(p.mint)) { seen.add(p.mint); send({method: 'subscribeTokenTrade', keys: [p.mint]}); } });
+    setFeed('Live pump.fun feed', true);
+  };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } handle(m); };
+  ws.onclose = () => {
+    if (App.ws !== ws) return;
+    App.ws = null;
+    if (App.wantFeed) {
+      setFeed('Reconnecting...', false); App.retry++;
+      setTimeout(() => { if (App.wantFeed && !App.ws) connect(true); }, Math.min(15000, 1000 * Math.pow(2, Math.min(App.retry, 4))));
+    } else setFeed('Feed off', false);
+  };
+  ws.onerror = () => { /* onclose follows and handles the retry */ };
+}
+function disconnect() { App.wantFeed = false; const ws = App.ws; App.ws = null; if (ws) ws.close(); setFeed('Feed off', false); }
+
+function readTicket() {
+  return {size: Number($('tSize').value), tp: Number($('tTp').value), sl: Number($('tSl').value), holdMin: Number($('tHold').value), fee: Number($('tFee').value)};
+}
+function buy(mint) {
+  const t = App.tokens.get(mint);
+  if (!t || !(t.mc > 0)) throw new Error('No live price for that token yet.');
+  const o = readTicket(); o.mint = mint; o.symbol = t.symbol; o.mark = t.mc;
+  const p = Paper.open(App.paper, o, Date.now());
+  if (!mint.startsWith('manual-')) send({method: 'subscribeTokenTrade', keys: [mint]});
+  App.selected = mint; persist();
+  return p;
+}
+function closePos(id, mark, reason) {
+  const p = App.paper.positions.find(x => x.id === id);
+  if (!p) return;
+  Paper.close(App.paper, id, mark, reason, Date.now());
+  if (!App.paper.positions.some(x => x.mint === p.mint) && !p.mint.startsWith('manual-')) send({method: 'unsubscribeTokenTrade', keys: [p.mint]});
+  persist();
+}
+function checkExits() {
+  App.paper.positions.slice().forEach(p => {
+    const mark = markFor(p), reason = Paper.signal(p, mark, Date.now());
+    if (reason) closePos(p.id, mark, reason);
+  });
+}
+function handle(m) {
+  if (!m || typeof m !== 'object' || typeof m.mint !== 'string' || !m.mint) return;
+  const mc = Number(m.marketCapSol), ok = Number.isFinite(mc) && mc > 0;
+  if (m.txType === 'create') {
+    App.seen++;
+    const t = ensureToken(m.mint, String(m.name || m.symbol || '?').slice(0, 60), String(m.symbol || '?').slice(0, 12), ok ? mc : 0);
+    if (ok) pushMark(t, mc);
+    if (!App.order.includes(m.mint)) App.order.unshift(m.mint);
+    if (App.order.length > 60) App.order.length = 60;
+    if (ok && App.rotate && App.paper.positions.length === 0) {
+      try { buy(m.mint); } catch (e) { App.rotate = false; $('tRotate').checked = false; persist(); setMsg('tMsg', 'Auto-rotate stopped: ' + e.message, true); }
+    }
+  } else if (m.txType === 'buy' || m.txType === 'sell') {
+    App.trades++;
+    if (!ok) return;
+    const t = App.tokens.get(m.mint);
+    if (t) pushMark(t, mc);
+    App.paper.positions.forEach(p => { if (p.mint === m.mint) p.last = mc; });
+    checkExits(); persist();
+  } else return;
+  render();
+}
+/*@@PART5@@*/
 </script>
 </body>
 </html>
