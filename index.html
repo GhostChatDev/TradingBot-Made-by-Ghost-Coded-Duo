@@ -47,7 +47,7 @@ a{color:var(--teal)}
 .stat{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel2),var(--panel))}
 .stat b{display:block;font-size:20px;font-weight:800;letter-spacing:-.02em}
 .layout{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:16px}
-.col{display:grid;gap:16px;align-content:start;min-width:0}
+.col{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-content:start;min-width:0}
 .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;min-width:0;scroll-margin-top:12px}
 .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
 .head h2{margin:0;font-size:15px}
@@ -321,7 +321,207 @@ function disconnect() {
   if (ws) ws.close();
   setFeed(false, 'Feed off');
 }
-/*@@PART5@@*/
+/* ---------- Trading helpers ---------- */
+function readTicket() {
+  return {size: parseFloat($('tSize').value), tp: parseFloat($('tTp').value), sl: parseFloat($('tSl').value), holdMin: parseFloat($('tHold').value), fee: parseFloat($('tFee').value)};
+}
+function openPosition(mint, symbol, mark) {
+  const p = Paper.open(App.paper, Object.assign({mint, symbol, mark}, readTicket()), Date.now());
+  App.trades++; persist(); syncSubs();
+  return p;
+}
+function closePosition(id, reason) {
+  const p = App.paper.positions.find(x => x.id === id);
+  if (!p) return;
+  const pnl = Paper.close(App.paper, id, markFor(p), reason, Date.now());
+  persist(); syncSubs();
+  setMsg('tMsg', p.symbol + ' closed (' + reason + '): ' + fmt(pnl) + ' SOL', pnl < 0);
+  if (App.rotate) App.pendingRotate = true;
+}
+function checkExits() {
+  const now = Date.now();
+  App.paper.positions.slice().forEach(p => {
+    const r = Paper.signal(p, markFor(p), now);
+    if (r) closePosition(p.id, r);
+  });
+}
+function tryRotate(t) {
+  if (!App.rotate || !App.pendingRotate || !t.mc) return;
+  try { openPosition(t.mint, t.symbol, t.mc); App.pendingRotate = false; App.selected = t.mint; setMsg('tMsg', 'Rotated into ' + t.symbol + '.', false); }
+  catch (e) { App.rotate = false; App.pendingRotate = false; $('tRotate').checked = false; persist(); setMsg('tMsg', 'Auto-rotate turned off: ' + e.message, true); }
+}
+
+/* ---------- Incoming feed messages ---------- */
+function onFeed(m) {
+  if (!m || typeof m.mint !== 'string') return;
+  const mc = typeof m.marketCapSol === 'number' && isFinite(m.marketCapSol) && m.marketCapSol > 0 ? m.marketCapSol : null;
+  const now = Date.now();
+  if (m.txType === 'create') {
+    const t = {mint: m.mint, name: String(m.name || 'Unnamed').slice(0, 40), symbol: String(m.symbol || '?').slice(0, 12), mc, hist: mc ? [[now, mc]] : [], buys: 0, sells: 0, created: now};
+    App.tokens.set(t.mint, t); App.order.unshift(t.mint); App.seen++;
+    while (App.order.length > 60) {
+      const old = App.order[App.order.length - 1];
+      if (App.paper.positions.some(p => p.mint === old) || old === App.selected) break;
+      App.order.pop(); App.tokens.delete(old);
+    }
+    if (!App.selected) App.selected = t.mint;
+    tryRotate(t);
+  } else if (mc) {
+    let t = App.tokens.get(m.mint);
+    if (!t) { t = {mint: m.mint, name: String(m.name || m.mint.slice(0, 6)), symbol: String(m.symbol || m.mint.slice(0, 4)), mc, hist: [], buys: 0, sells: 0, created: now}; App.tokens.set(t.mint, t); }
+    t.mc = mc; t.hist.push([now, mc]); if (t.hist.length > 600) t.hist.shift();
+    if (m.txType === 'buy') t.buys++; else if (m.txType === 'sell') t.sells++;
+    App.paper.positions.forEach(p => { if (p.mint === m.mint) p.last = mc; });
+    checkExits();
+  }
+  schedule();
+}
+
+/* ---------- Rendering ---------- */
+let queued = false;
+function schedule() { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; render(); }); }
+function renderStats() {
+  const open = App.paper.positions.reduce((s, p) => s + Paper.estimate(p, markFor(p)), 0);
+  $('sBal').textContent = sol(App.paper.balance) + ' SOL';
+  $('sOpenPnl').textContent = fmt(open) + ' SOL'; $('sOpenPnl').className = cls(open);
+  $('sPnl').textContent = fmt(App.paper.realized) + ' SOL'; $('sPnl').className = cls(App.paper.realized);
+  $('sCount').textContent = String(App.paper.positions.length);
+  $('tkSeen').textContent = String(App.seen); $('tkTrades').textContent = String(App.trades);
+  $('feedCount').textContent = String(App.seen);
+}
+function renderFeed() {
+  const ul = $('feed'); ul.textContent = '';
+  if (!App.order.length) { const li = el('li', 'muted', 'Connect the live feed to see launches.'); li.id = 'feedEmpty'; ul.appendChild(li); return; }
+  App.order.slice(0, 40).forEach(mint => {
+    const t = App.tokens.get(mint); if (!t) return;
+    const li = el('li', mint === App.selected ? 'sel' : ''); li.dataset.mint = mint;
+    li.appendChild(el('div', 'coin', t.symbol.slice(0, 3).toUpperCase()));
+    const fi = el('div', 'fi'); fi.appendChild(el('b', '', t.name)); fi.appendChild(el('small', '', t.symbol + ' · ' + (t.mc ? t.mc.toFixed(1) + ' SOL' : '--')));
+    li.appendChild(fi);
+    const b = el('button', 'btn small go', 'Buy'); b.type = 'button'; b.dataset.buy = mint; b.setAttribute('aria-label', 'Paper buy ' + t.name);
+    li.appendChild(b); ul.appendChild(li);
+  });
+}
+function renderPositions() {
+  const body = $('posBody'); body.textContent = '';
+  App.paper.positions.forEach(p => {
+    const mark = markFor(p), pnl = Paper.estimate(p, mark), mv = (mark / p.entry - 1) * 100;
+    const tr = el('tr', p.mint === App.selected ? 'sel' : ''); tr.dataset.mint = p.mint;
+    tr.appendChild(el('td', '', p.symbol)); tr.appendChild(el('td', '', sol(p.size)));
+    tr.appendChild(el('td', '', p.entry.toFixed(2))); tr.appendChild(el('td', '', mark.toFixed(2)));
+    tr.appendChild(el('td', cls(mv), fmt(mv, 1) + '%')); tr.appendChild(el('td', cls(pnl), fmt(pnl) + ' SOL'));
+    tr.appendChild(el('td', 'muted', '+' + p.tp + '% / -' + p.sl + '%'));
+    const td = el('td'); const b = el('button', 'btn small sell', 'Close'); b.type = 'button'; b.dataset.close = String(p.id); td.appendChild(b); tr.appendChild(td);
+    body.appendChild(tr);
+  });
+  $('posEmpty').style.display = App.paper.positions.length ? 'none' : 'block';
+  $('closeAllBtn').disabled = !App.paper.positions.length;
+}
+function renderHistory() {
+  const body = $('histBody'); body.textContent = '';
+  App.paper.trades.forEach(t => {
+    const tr = el('tr'); tr.appendChild(el('td', '', t.symbol)); tr.appendChild(el('td', '', sol(t.size)));
+    tr.appendChild(el('td', cls(t.pnl), fmt(t.pnl) + ' SOL')); tr.appendChild(el('td', 'muted', t.reason)); body.appendChild(tr);
+  });
+  $('histEmpty').style.display = App.paper.trades.length ? 'none' : 'block';
+}
+function renderChart() {
+  const t = App.selected ? App.tokens.get(App.selected) : null;
+  const svg = $('chart'); svg.textContent = '';
+  $('selName').textContent = t ? t.name : 'No token selected';
+  $('selSub').textContent = t ? t.symbol + ' · ' + t.buys + ' buys / ' + t.sells + ' sells seen' : 'Pick a launch from the live feed.';
+  $('selMc').textContent = t && t.mc ? t.mc.toFixed(2) : '--';
+  $('tTarget').textContent = t ? 'Target: ' + t.name + ' (' + t.symbol + ')' : 'Select a token, then buy.';
+  if (!t) { $('selChg').textContent = ''; return; }
+  const cut = App.win ? Date.now() - App.win * 1000 : 0;
+  const pts = t.hist.filter(h => h[0] >= cut);
+  if (t.hist.length && t.mc) { const f = t.hist[0][1]; const ch = (t.mc / f - 1) * 100; $('selChg').textContent = fmt(ch, 1) + '% since first seen'; $('selChg').className = 'change ' + cls(ch); }
+  if (pts.length < 2) return;
+  const xs = pts.map(h => h[0]), ys = pts.map(h => h[1]);
+  const x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+  const X = v => 8 + (x1 === x0 ? 0 : (v - x0) / (x1 - x0)) * 584, Y = v => 202 - (y1 === y0 ? 0.5 : (v - y0) / (y1 - y0)) * 190;
+  const up = ys[ys.length - 1] >= ys[0];
+  svg.appendChild(svgEl('polyline', {points: pts.map(h => X(h[0]).toFixed(1) + ',' + Y(h[1]).toFixed(1)).join(' '), fill: 'none', stroke: up ? '#35e08a' : '#ff6b7a', 'stroke-width': '2'}));
+  App.paper.positions.filter(p => p.mint === t.mint && p.entry >= y0 && p.entry <= y1).forEach(p => {
+    svg.appendChild(svgEl('line', {x1: 0, x2: 600, y1: Y(p.entry), y2: Y(p.entry), stroke: '#8b7cff', 'stroke-dasharray': '4 4'}));
+  });
+}
+function render() { renderStats(); renderFeed(); renderPositions(); renderHistory(); renderChart(); }
+/* ---------- Events ---------- */
+$('connectBtn').addEventListener('click', () => {
+  if (App.wantFeed) { disconnect(); } else { App.wantFeed = true; persist(); connect(); }
+  $('connectBtn').textContent = App.wantFeed ? 'Disconnect feed' : 'Connect live feed';
+});
+$('tfs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-win]'); if (!b) return;
+  App.win = parseInt(b.dataset.win, 10);
+  Array.from($('tfs').children).forEach(x => x.classList.toggle('on', x === b));
+  schedule();
+});
+$('feed').addEventListener('click', e => {
+  const buy = e.target.closest('button[data-buy]');
+  const li = e.target.closest('li[data-mint]');
+  if (buy) {
+    const t = App.tokens.get(buy.dataset.buy);
+    try {
+      if (!t || !t.mc) throw new Error('No live price for this token yet.');
+      openPosition(t.mint, t.symbol, t.mc); App.selected = t.mint;
+      setMsg('tMsg', 'Paper bought ' + t.symbol + ' at ' + t.mc.toFixed(2) + ' SOL market cap.', false);
+    } catch (err) { setMsg('tMsg', err.message, true); }
+  } else if (li) { App.selected = li.dataset.mint; persist(); syncSubs(); }
+  schedule();
+});
+$('ticketForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = App.selected ? App.tokens.get(App.selected) : null;
+  try {
+    if (!t || !t.mc) throw new Error('Select a token with a live price first.');
+    openPosition(t.mint, t.symbol, t.mc);
+    setMsg('tMsg', 'Paper bought ' + t.symbol + ' at ' + t.mc.toFixed(2) + ' SOL market cap.', false);
+  } catch (err) { setMsg('tMsg', err.message, true); }
+  schedule();
+});
+document.querySelector('.pills').addEventListener('click', e => {
+  const b = e.target.closest('button[data-size]'); if (b) $('tSize').value = b.dataset.size;
+});
+$('tRotate').checked = App.rotate;
+$('tRotate').addEventListener('change', e => {
+  App.rotate = e.target.checked; App.pendingRotate = App.rotate && App.paper.positions.length === 0; persist();
+  setMsg('tMsg', App.rotate ? 'Auto-rotate on: the next new launch will be bought.' : 'Auto-rotate off.', false);
+});
+$('manualForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const sym = $('mSym').value.trim().toUpperCase() || 'TOKEN';
+  const mc = parseFloat($('mMc').value);
+  const mint = $('mMint').value.trim();
+  try {
+    if (mint && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint)) throw new Error('That mint address does not look valid.');
+    openPosition(mint || 'manual-' + App.paper.nextId, sym, mc);
+    if (mint && !App.tokens.has(mint)) App.tokens.set(mint, {mint, name: sym, symbol: sym, mc, hist: [[Date.now(), mc]], buys: 0, sells: 0, created: Date.now()});
+    $('mSym').value = ''; $('mMc').value = ''; $('mMint').value = '';
+    setMsg('mMsg', 'Added paper position ' + sym + '.', false);
+  } catch (err) { setMsg('mMsg', err.message, true); }
+  schedule();
+});
+$('posBody').addEventListener('click', e => {
+  const b = e.target.closest('button[data-close]');
+  if (b) closePosition(parseInt(b.dataset.close, 10), 'manual');
+  else { const tr = e.target.closest('tr[data-mint]'); if (tr) { App.selected = tr.dataset.mint; persist(); } }
+  schedule();
+});
+$('closeAllBtn').addEventListener('click', () => { App.paper.positions.slice().forEach(p => closePosition(p.id, 'manual')); schedule(); });
+$('resetBtn').addEventListener('click', () => {
+  App.paper = Paper.create(Date.now()); App.pendingRotate = false; persist(); syncSubs();
+  setMsg('tMsg', 'Paper account reset to 5 SOL.', false); schedule();
+});
+['tSize', 'tTp', 'tSl', 'tHold', 'tFee'].forEach(id => $(id).addEventListener('change', persist));
+
+setInterval(() => { if (App.paper.positions.length) { checkExits(); schedule(); } }, 5000);
+render();
+if (App.wantFeed) { setFeed(false, 'Reconnecting...'); connect(); }
+else setFeed(false, 'Feed off');
+$('connectBtn').textContent = App.wantFeed ? 'Disconnect feed' : 'Connect live feed';
+window.GhostTerminal = {App, Paper, onFeed, render};
 </script>
 </body>
 </html>

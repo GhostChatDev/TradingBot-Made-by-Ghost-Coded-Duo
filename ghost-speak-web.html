@@ -3,133 +3,126 @@
 <head><meta charset="utf-8"><title>Ghost Trading browser checks</title></head>
 <body>
 <h1>Ghost Trading browser checks</h1>
-<p id="status">Running…</p>
+<p id="status">Running...</p>
 <pre id="log"></pre>
 <script>
 (async () => {
   const log = document.getElementById('log');
   const status = document.getElementById('status');
-  const check = (ok, message) => { if (!ok) throw new Error(message); log.textContent += `PASS: ${message}\n`; };
+  const check = (ok, message) => { if (!ok) throw new Error(message); log.textContent += 'PASS: ' + message + '\n'; };
   const near = (a, b) => Math.abs(a - b) < 1e-9;
-  const rejects = (fn, contains) => {
-    try { fn(); } catch (error) { return error.message.includes(contains); }
-    return false;
-  };
-  const key = 'ghost-trading-paper-v1';
-  localStorage.removeItem(key);
+  const rejects = (fn, contains) => { try { fn(); } catch (error) { return error.message.includes(contains); } return false; };
+  const KEY = 'ghost-terminal-v2';
+  localStorage.removeItem(KEY);
   try {
     const response = await fetch('./index.html');
     check(response.ok, 'dashboard loads');
     const source = await response.text();
-    const bootstrap = `<script>window.__errors=[];window.addEventListener('error',event=>window.__errors.push(event.message));window.addEventListener('unhandledrejection',event=>window.__errors.push(String(event.reason)));class FakeSocket{constructor(url){this.url=url;this.listeners={};this.sent=[];this.readyState=0;FakeSocket.last=this;}addEventListener(type,fn){this.listeners[type]=fn;}send(data){this.sent.push(JSON.parse(data));}close(){this.readyState=3;if(this.listeners.close)this.listeners.close();}emit(type,event={}){if(type==='open')this.readyState=1;if(this.listeners[type])this.listeners[type](event);}}window.WebSocket=FakeSocket;<\/script>`;
-    const frame = document.createElement('iframe');
-    frame.style.cssText = 'width:375px;height:800px;border:0';
-    frame.srcdoc = source.replace('<script>', bootstrap + '<script>');
-    const loaded = new Promise((resolve, reject) => { frame.onload = resolve; frame.onerror = reject; });
-    document.body.append(frame);
-    await loaded;
-    const win = frame.contentWindow;
-    const doc = frame.contentDocument;
-    check(!!win.Paper, 'paper engine initialized without script errors');
-    check(win.__errors.length === 0, 'page has no uncaught errors');
+    const bootstrap = '<script>window.__errors=[];window.addEventListener("error",function(e){window.__errors.push(e.message)});' +
+      'class FakeSocket{constructor(url){this.url=url;this.sent=[];this.readyState=0;FakeSocket.last=this;}' +
+      'send(d){this.sent.push(JSON.parse(d));}close(){this.readyState=3;if(this.onclose)this.onclose();}' +
+      'open(){this.readyState=1;if(this.onopen)this.onopen();}' +
+      'push(o){if(this.onmessage)this.onmessage({data:JSON.stringify(o)});}}' +
+      'window.WebSocket=FakeSocket;<\/script>';
+    const boot = async () => {
+      const f = document.createElement('iframe');
+      f.style.cssText = 'width:375px;height:800px;border:0';
+      f.srcdoc = source.replace('<script>', () => bootstrap + '<script>');
+      const ready = new Promise(resolve => { f.onload = resolve; });
+      document.body.append(f); await ready;
+      return f;
+    };
+    let frame = await boot();
+    let win = frame.contentWindow, doc = frame.contentDocument;
+    const T = () => win.GhostTerminal;
+    const ui = id => doc.getElementById(id);
+    const draw = () => T().render();
+    check(!!win.GhostTerminal && win.__errors.length === 0, 'terminal starts with no uncaught errors');
     check(doc.querySelector('meta[name="viewport"]') !== null, 'mobile viewport is configured');
     check(doc.documentElement.scrollWidth <= 375, 'mobile page does not scroll sideways');
-    const { create, open, close, exitSignal } = win.Paper;
-    const date = new Date('2026-11-18T12:00:00Z');
-    const params = {token:'TEST', mark:30, size:0.1, fee:2};
-    const s = create(date);
-    check(near(s.balance, 5), 'starting paper balance is 5 SOL');
-    check(rejects(() => open(s, {...params, size:5.01}, date), 'exceeds'), 'exposure cap rejects positions above 5 SOL');
-    const fullSol = create(date);
-    open(fullSol, {...params, size:5}, date);
-    check(near(fullSol.balance, 0) && near(fullSol.position.size, 5), 'allows full 5 SOL paper position');
-    check(rejects(() => open(s, {...params, mark:0}, date), 'positive'), 'invalid marks are rejected');
-    open(s, params, date);
-    check(near(s.balance, 4.9) && s.entries === 1, 'opening reserves paper balance');
-    check(near(win.Paper.openPnl(s.position, 60, 2), 0.09208), 'open P&L estimate includes costs on both sides');
-    check(rejects(() => open(s, params, date), 'Close'), 'only one position is allowed');
-    const pnl = close(s, {mark:60, fee:2, share:20}, date);
-    check(near(pnl, 0.09208) && near(s.balance, 5.09208), 'P&L includes costs on both sides');
-    check(near(s.allocation, 0.018416) && near(s.pnl, pnl), 'server allocation is calculated but not transferred');
-    const loss = create(date);
-    open(loss, params, date);
-    close(loss, {mark:15, fee:2, share:20}, date);
-    check(loss.pnl < 0 && loss.allocation === 0, 'losses do not allocate server funds');
-    const many = create(date);
-    for (let i = 0; i < 10; i++) { open(many, params, date); close(many, {mark:30, fee:0, share:0}, date); }
-    check(many.closed === 10 && many.position === null, 'no daily limit: 10 entries in one day all work');
-    const nearStop = create(date); nearStop.weekPnl = -3.9;
-    open(nearStop, params, date);
-    check(nearStop.position !== null, 'weekly loss below 4 SOL still allows entries');
-    const weekly = create(date); weekly.weekPnl = -4;
-    check(rejects(() => open(weekly, params, date), 'loss stop'), 'weekly 4 SOL loss stop blocks entries');
-    const auto = create(date);
-    open(auto, {...params, tp:30, sl:15, holdMin:10}, date);
-    const t0 = date.getTime(), ap = auto.position;
-    check(exitSignal(ap, 40, t0) === 'take-profit' && exitSignal(ap, 25, t0) === 'stop-loss' && exitSignal(ap, 31, t0 + 600000) === 'time-stop' && exitSignal(ap, 31, t0 + 1000) === null, 'exit rules trigger take profit, stop loss and time stop');
-    const gap = close(auto, {mark:15, fee:2, share:20}, date);
-    check(gap < -0.1 * 0.15, 'a gap past the stop loses more than the stop: losses are limited, not prevented');
-    check(rejects(() => open(create(date), {...params, sl:0}, date), 'Stop loss'), 'invalid exit rules are rejected');
-    const ui = id => doc.getElementById(id);
-    ui('token').value = 'UI TEST'; ui('mark').value = '30'; ui('size').value = '0.1'; ui('buy').click();
-    check(ui('position').textContent.includes('UI TEST') && ui('buy').disabled, 'paper ticket opens a position');
-    ui('mark').value = '60'; ui('sell').click();
-    check(ui('closed').textContent === '1' && ui('balance').textContent === '5.0921 SOL', 'paper ticket closes with expected balance');
-    ui('connect').click();
-    const socket = win.WebSocket.last; socket.emit('open');
-    check(socket.url === 'wss://pumpportal.fun/api/data' && socket.sent[0].method === 'subscribeNewToken', 'feed subscribes to new launches');
-    socket.emit('message', {data:JSON.stringify({txType:'create', mint:'mint123', name:'<img src=x onerror=alert(1)>', symbol:'TEST', marketCapSol:30})});
-    check(ui('feed').textContent.includes('<img src=x onerror=alert(1)>') && !ui('feed').querySelector('img'), 'untrusted launch names are rendered as text');
-    ui('feed').querySelector('button').click();
-    check(ui('token').value === 'mint123' && ui('mark').value === '30', 'selecting launch prefills paper ticket');
-    ui('buy').click();
-    check(socket.sent.some(m => m.method === 'subscribeTokenTrade' && m.keys[0] === 'mint123'), 'open position subscribes to its live trades');
-    socket.emit('message', {data:JSON.stringify({txType:'buy', mint:'other', marketCapSol:999})});
-    check(ui('sell').disabled === false, 'trades for other tokens are ignored');
-    socket.emit('message', {data:JSON.stringify({txType:'buy', mint:'mint123', marketCapSol:40})});
-    check(ui('closed').textContent === '2' && ui('balance').textContent === '5.1201 SOL', 'take profit auto-closes on a live mark');
-    check(socket.sent.some(m => m.method === 'unsubscribeTokenTrade' && m.keys[0] === 'mint123'), 'closed position unsubscribes');
-    ui('token').value = 'RECOVERY'; ui('mark').value = '30'; ui('buy').click();
-    const before = JSON.parse(localStorage.getItem(key));
-    check(before.state.position.token === 'RECOVERY' && before.wantsFeed === true, 'open position and feed connection preference are saved');
-    ui('share').value = '35'; ui('share').dispatchEvent(new win.Event('input'));
+    check(doc.querySelector('symbol#ghostlogo') !== null && doc.querySelectorAll('.brand svg use').length >= 1, 'Ghost logo is on the page');
+    check(doc.body.textContent.includes('real-money trading is not enabled'), 'page says real-money trading is not enabled');
+    check(ui('sBal').textContent === '5.0000 SOL', 'starting paper balance is 5 SOL');
+
+    /* paper engine rules */
+    const P = T().Paper, now = Date.UTC(2026, 10, 18, 12, 0, 0);
+    const base = {mint: 'm', symbol: 'TST', mark: 30, size: 0.1, tp: 30, sl: 15, holdMin: 10, fee: 2};
+    const s = P.create(now);
+    check(near(s.balance, 5), 'engine starts at 5 SOL');
+    check(rejects(() => P.open(s, Object.assign({}, base, {size: 5.01}), now), 'Size'), 'positions above 5 SOL are rejected');
+    const full = P.create(now); P.open(full, Object.assign({}, base, {size: 5}), now);
+    check(near(full.balance, 0), 'a full 5 SOL position is allowed');
+    check(rejects(() => P.open(full, base, now), 'Insufficient'), 'cannot open without balance');
+    check(rejects(() => P.open(s, Object.assign({}, base, {mark: 0}), now), 'Entry market cap'), 'invalid entry price is rejected');
+    check(rejects(() => P.open(s, Object.assign({}, base, {sl: 0}), now), 'Stop loss'), 'invalid stop loss is rejected');
+    const p1 = P.open(s, base, now), p2 = P.open(s, Object.assign({}, base, {mint: 'm2'}), now);
+    check(s.positions.length === 2 && near(s.balance, 4.8), 'many positions can be open at once');
+    const pnl = P.close(s, p1.id, 60, 'manual', now);
+    check(near(pnl, 0.09208) && near(s.balance, 4.9 + 0.1 + 0.09208 - 0.1), 'P&L includes costs on both sides');
+    check(P.signal(p2, 40, now) === 'take profit' && P.signal(p2, 25, now) === 'stop loss' && P.signal(p2, 31, now + 600000) === 'max hold' && P.signal(p2, 31, now + 1000) === null, 'exit rules: take profit, stop loss, max hold');
+    const many = P.create(now);
+    for (let i = 0; i < 10; i++) { P.open(many, Object.assign({}, base, {fee: 0}), now); P.close(many, many.positions[0].id, 30, 'manual', now); }
+    check(many.trades.length === 10, 'no daily limit: 10 entries in one day all work');
+    const weekly = P.create(now); weekly.weekPnl = -4;
+    check(rejects(() => P.open(weekly, base, now), 'Weekly'), 'weekly 4 SOL loss stop blocks new trades');
+
+    /* add any position (UI) */
+    ui('tSize').value = '0.1';
+    ui('mSym').value = 'AAA'; ui('mMc').value = '30'; ui('manualBtn').click();
+    ui('mSym').value = 'BBB'; ui('mMc').value = '10'; ui('manualBtn').click(); draw();
+    check(ui('sCount').textContent === '2' && ui('posBody').textContent.includes('AAA') && ui('posBody').textContent.includes('BBB'), 'any positions can be added by hand');
+    ui('closeAllBtn').click(); draw();
+    check(ui('sCount').textContent === '0' && ui('histBody').children.length === 2, 'close all closes every position');
+    ui('resetBtn').click(); draw();
+    check(ui('sBal').textContent === '5.0000 SOL', 'reset returns the paper account to 5 SOL');
+    ui('tSize').value = '0.5';
+
+    /* live feed */
+    ui('connectBtn').click();
+    let sock = win.WebSocket.last; sock.open();
+    check(sock.url === 'wss://pumpportal.fun/api/data' && sock.sent[0].method === 'subscribeNewToken', 'connects to the pump.fun PumpPortal feed and subscribes to new launches');
+    sock.push({txType: 'create', mint: 'mintA', name: '<img src=x onerror=alert(1)>', symbol: 'AAA', marketCapSol: 30}); draw();
+    check(ui('feed').textContent.includes('<img src=x onerror=alert(1)>') && !ui('feed').querySelector('img'), 'untrusted launch names are shown as text');
+    ui('feed').querySelector('button[data-buy]').click(); draw();
+    check(ui('sCount').textContent === '1' && sock.sent.some(m => m.method === 'subscribeTokenTrade' && m.keys[0] === 'mintA'), 'buying a launch opens a position and subscribes to its live trades');
+    sock.push({txType: 'buy', mint: 'other', marketCapSol: 999}); draw();
+    check(ui('sCount').textContent === '1', 'trades for other tokens do not touch the position');
+    sock.push({txType: 'buy', mint: 'mintA', marketCapSol: 40}); draw();
+    check(ui('sOpenPnl').textContent === '+0.1405 SOL' && ui('selMc').textContent === '40.00', 'open P&L follows the live market cap');
+    sock.push({txType: 'buy', mint: 'mintA', marketCapSol: 45}); draw();
+    check(ui('sCount').textContent === '0' && ui('sBal').textContent === '5.2203 SOL' && ui('histBody').textContent.includes('take profit'), 'take profit closes the position on a live price');
+
+    /* auto-rotate */
+    ui('tRotate').click();
+    sock.push({txType: 'create', mint: 'mintB', name: 'Beta', symbol: 'BBB', marketCapSol: 20}); draw();
+    check(ui('sCount').textContent === '1' && ui('posBody').textContent.includes('BBB'), 'auto-rotate buys the next new launch');
+    sock.push({txType: 'buy', mint: 'mintB', marketCapSol: 30}); draw();
+    check(ui('sCount').textContent === '0' && ui('sBal').textContent === '5.4406 SOL', 'rotation position takes profit');
+    sock.push({txType: 'create', mint: 'mintC', name: 'Gamma', symbol: 'CCC', marketCapSol: 10}); draw();
+    check(ui('sCount').textContent === '1' && ui('posBody').textContent.includes('CCC') && ui('sBal').textContent === '4.9406 SOL', 'after the exit it jumps to the next launch');
+
+    /* reload recovery */
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    check(saved.wantFeed === true && saved.paper.positions.length === 1 && saved.rotate === true, 'positions and feed preference are saved');
     frame.remove();
-    const reload = async () => {
-      const next = document.createElement('iframe');
-      next.srcdoc = source.replace('<script>', bootstrap + '<script>');
-      const ready = new Promise(resolve => { next.onload = resolve; });
-      document.body.append(next); await ready; return next;
-    };
-    const recovered = await reload();
-    const restored = id => recovered.contentDocument.getElementById(id);
-    const reconnectedSocket = recovered.contentWindow.WebSocket.last;
-    check(!!reconnectedSocket && restored('connection-status').textContent === 'CONNECTING', 'reload automatically reconnects feed when previously enabled');
-    reconnectedSocket.emit('open');
-    check(restored('connection-status').textContent === 'CONNECTED' && reconnectedSocket.sent.some(m => m.method === 'subscribeTokenTrade' && m.keys[0] === 'RECOVERY'), 'reconnected feed re-subscribes to restored open position');
-    check(restored('position').textContent.includes('RECOVERY') && restored('buy').disabled && !restored('sell').disabled, 'reload restores the open position and controls');
-    check(restored('balance').textContent === '5.0201 SOL' && restored('closed').textContent === '2', 'reload preserves balance and closed trades');
-    check(restored('share').value === '35' && restored('token').value === 'RECOVERY', 'reload restores ticket settings');
-    restored('mark').value = '60'; restored('sell').click();
-    check(restored('closed').textContent === '3', 'restored position can be closed');
-    reconnectedSocket.emit('message', {data:JSON.stringify({txType:'create', mint:'rot1', name:'Next', symbol:'NXT', marketCapSol:20})});
-    restored('token').value = 'ROTA'; restored('mark').value = '30'; restored('size').value = '0.1'; restored('buy').click();
-    const rotate = restored('rotate'); rotate.checked = true; rotate.dispatchEvent(new recovered.contentWindow.Event('change'));
-    reconnectedSocket.emit('message', {data:JSON.stringify({txType:'buy', mint:'ROTA', marketCapSol:40})});
-    check(restored('closed').textContent === '4' && restored('position').textContent.includes('OPEN · rot1'), 'auto-rotate opens the next launch after a take-profit exit');
-    reconnectedSocket.emit('message', {data:JSON.stringify({txType:'buy', mint:'rot1', marketCapSol:22})});
-    check(restored('openpnl').textContent.includes('+0.0056 SOL (10.0%)'), 'open P&L follows the live market cap');
-    check(recovered.contentWindow.__errors.length === 0, 'recovery produces no uncaught errors');
-    recovered.remove();
-    localStorage.setItem(key, '{broken');
-    const broken = await reload();
-    const brokenDoc = broken.contentDocument;
-    check(brokenDoc.getElementById('buy').disabled && brokenDoc.getElementById('sell').disabled, 'corrupt storage locks trading');
-    check(brokenDoc.getElementById('storage-status').textContent.includes('LOCKED') && localStorage.getItem(key) === '{broken', 'corrupt saved account is not overwritten');
-    check(broken.contentWindow.__errors.length === 0, 'corrupt storage is handled without script errors');
-    broken.remove(); localStorage.removeItem(key);
+    frame = await boot(); win = frame.contentWindow; doc = frame.contentDocument;
+    sock = win.WebSocket.last;
+    check(!!sock && sock.readyState === 0 && ui('feedText').textContent === 'Reconnecting...', 'reload reconnects the feed automatically');
+    sock.open(); draw();
+    check(ui('feedText').textContent === 'Live pump.fun feed' && sock.sent.some(m => m.method === 'subscribeTokenTrade' && m.keys[0] === 'mintC'), 'reconnected feed re-subscribes to the restored position');
+    check(ui('sCount').textContent === '1' && ui('posBody').textContent.includes('CCC') && ui('sBal').textContent === '4.9406 SOL', 'reload restores the open position and balance');
+    ui('posBody').querySelector('button[data-close]').click(); draw();
+    check(ui('sCount').textContent === '0' && win.__errors.length === 0, 'restored position can be closed without errors');
+    frame.remove();
+
+    /* corrupt storage */
+    localStorage.setItem(KEY, '{broken');
+    frame = await boot(); win = frame.contentWindow; doc = frame.contentDocument;
+    check(win.__errors.length === 0 && ui('sBal').textContent === '5.0000 SOL', 'corrupt storage starts a fresh account without errors');
+    frame.remove(); localStorage.removeItem(KEY);
     status.textContent = 'ALL TESTS PASSED'; status.id = 'pass';
   } catch (error) {
-    status.textContent = `FAIL: ${error.stack || error}`;
+    status.textContent = 'FAIL: ' + (error.stack || error);
     status.id = 'fail';
     console.error(status.textContent);
   }
