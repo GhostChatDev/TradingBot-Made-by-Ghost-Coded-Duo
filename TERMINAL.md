@@ -20,6 +20,16 @@
 | Settings | Display name, commission, slippage, live-crypto toggle, 24/7 simulation toggle, deposit and withdraw, reset to the demo portfolio or an empty $100k account |
 | Everywhere | ⌘K / Ctrl+K / `/` search for symbols and pages. Saved in the browser (localStorage). Works on phone, iPad and desktop |
 
+## Try a virtual deposit and a trade
+
+1. Open `terminal.html` (add `?offline=1` for a fully simulated feed). The demo account starts with paper cash and holdings.
+2. On **Dashboard**, enter an amount in **Fund your paper account** and press **Deposit virtual USDC**. Deposits are instant, appear in **Transactions**, and increase paper cash and total portfolio value. They are not investment returns.
+3. Open **Trade**, choose a symbol and quantity, then place a market buy. Sell from the same ticket or **Portfolio**. Orders use the configured simulated slippage and commission.
+4. Open **Trading bot**, choose SMA crossover or RSI reversion, set the trade size and risk limits, and start the bot. It evaluates completed one-minute candles and logs its decisions.
+5. Reload the page: deposits, holdings and transaction history are saved in this browser. Use **Settings → Reset to empty $100k account** for a clean paper account.
+
+Deposits must be greater than zero and at most $10,000,000 per transfer. They are bookkeeping entries in localStorage: **no USDC, wallet, bank card, exchange, broker or real payment is involved**. Live crypto prices, when available, do not make executions real.
+
 Add `?offline=1` to the URL to turn off all network calls.
 
 ## Tests

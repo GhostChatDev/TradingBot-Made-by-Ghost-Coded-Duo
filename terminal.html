@@ -270,6 +270,12 @@ tbody tr:hover{background:#ffffff05}
         <div class="kpi"><div class="label">Day change</div><b id="kDay">--</b><div class="sub" id="kDaySub"></div><svg class="spark" id="kDaySpark"></svg></div>
         <div class="kpi"><div class="label">Cash balance</div><b id="kCash">--</b><div class="sub muted" id="kCashSub"></div></div>
       </div>
+      <section class="card" style="margin-bottom:14px"><div class="cbody">
+        <div class="inline" style="justify-content:space-between;gap:14px">
+          <div><h3>Fund your paper account</h3><p class="muted" style="font-size:12px;margin:4px 0 0">Virtual USDC only. No wallet, payment or real funds.</p></div>
+          <form class="inline" id="quickDeposit"><label for="quickDepositAmt" class="muted">Amount (USDC)</label><input class="inp" id="quickDepositAmt" type="number" min="0.01" max="10000000" step="0.01" value="10000" required style="width:150px"><button class="btn pri" type="submit">Deposit virtual USDC</button></form>
+        </div><p class="sub" id="quickDepositMsg" role="status" style="margin:8px 0 0"></p>
+      </div></section>
       <div class="grid g-top">
         <section class="card">
           <div class="chead"><h3>Portfolio growth</h3><div class="tfs" id="growthTf" role="group" aria-label="Range"><button data-r="1D">1D</button><button data-r="1W">1W</button><button data-r="1M">1M</button><button data-r="3M">3M</button><button data-r="6M">6M</button><button data-r="1Y" class="on">1Y</button><button data-r="ALL">ALL</button></div></div>
@@ -326,7 +332,7 @@ tbody tr:hover{background:#ffffff05}
             <div class="chead" style="flex-wrap:wrap"><div class="inline"><input class="inp" id="trSym" list="symList" style="width:120px;font-weight:750" aria-label="Symbol" autocomplete="off"><div><b id="trName">--</b><div class="muted" id="trSrc" style="font-size:11px"></div></div></div>
               <div style="text-align:right"><div class="big" id="trPrice">--</div><div id="trChg" style="font-weight:650"></div></div></div>
             <div class="cbody">
-              <div class="inline" style="justify-content:space-between"><div class="tfs" id="trTf" role="group" aria-label="Candle interval"><button data-tf="1m" class="on">1m candles</button><button data-tf="1D">Daily</button></div>
+              <div class="inline" style="justify-content:space-between"><div class="tfs" id="trTf" role="group" aria-label="Candle interval"><button data-tf="1m" class="on" aria-pressed="true">1m candles</button><button data-tf="1D" aria-pressed="false">Daily</button></div>
                 <div class="inline"><label class="check"><input type="checkbox" id="ovFast" checked>SMA 20</label><label class="check"><input type="checkbox" id="ovSlow" checked>SMA 50</label></div></div>
               <svg class="chart tall hov" id="candles" role="img" aria-label="Price candles"></svg>
               <div class="legend" id="trLegend"></div>
@@ -618,7 +624,9 @@ function loadHist(now) {
 /* ================= trading engine ================= */
 function addTx(tx) { tx.id = S.nextId++; S.txs.push(tx); S.txs.sort((a, b) => a.t - b.t); SER = null; return tx; }
 function cashFlow(type, amount, t = Date.now(), note = '') {
-  if (!(amount > 0)) throw new Error('Enter an amount greater than 0.');
+  if (!['Deposit', 'Withdrawal'].includes(type)) throw new Error('Choose a deposit or withdrawal.');
+  if (!fin(amount) || !(amount > 0)) throw new Error('Enter an amount greater than 0.');
+  if (amount > 10000000) throw new Error('The maximum virtual cash transfer is $10,000,000.');
   if (type === 'Withdrawal' && amount > S.cash + 1e-9) throw new Error('You only have ' + money(S.cash) + ' cash.');
   S.cash += type === 'Withdrawal' ? -amount : amount;
   return addTx({t, type, sym: '', qty: 0, price: 0, amount, fee: 0, pnl: 0, note, status: 'Completed'});
@@ -1353,23 +1361,26 @@ $('avatarBtn').addEventListener('click', () => go('settings'));
 $('bellBtn').addEventListener('click', () => { $('notifPanel').classList.toggle('on'); renderNotifs(); });
 $('markRead').addEventListener('click', () => { S.notifs.forEach(n => { n.read = true; }); save(); renderNotifs(); renderChrome(); });
 $('growthTf').addEventListener('click', e => { const b = e.target.closest('button[data-r]'); if (!b) return; RANGE = b.dataset.r; $('growthTf').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(); });
-$('trTf').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (!b) return; TF = b.dataset.tf; $('trTf').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(); });
+$('trTf').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (!b) return; TF = b.dataset.tf; $('trTf').querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); render(); });
 ['ovFast', 'ovSlow'].forEach(id => $(id).addEventListener('change', render));
 $('trSym').addEventListener('change', () => { const s = $('trSym').value.trim().toUpperCase(); if (A[s]) { TRSYM = s; $('trSym').value = s; $('oPrice').value = ''; render(); } else { $('trSym').value = TRSYM; toast('Unknown symbol', s + ' is not in the market list.', true); } });
 document.querySelector('.seg').addEventListener('click', e => { const b = e.target.closest('button[data-side]'); if (b) setSide(b.dataset.side); });
 ['oType', 'oMode', 'oQty', 'oPrice'].forEach(id => $(id).addEventListener('input', () => {
   if (id === 'oType' && $('oType').value !== 'market' && !$('oPrice').value) $('oPrice').value = +A[TRSYM].price.toPrecision(6);
+  if (id === 'oQty') clearQuick();
   updateTicket();
 }));
+function clearQuick() { $('oQuick').querySelectorAll('button').forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); }); }
 $('oQuick').addEventListener('click', e => {
   const b = e.target.closest('[data-frac]'); if (!b) return;
+  clearQuick(); b.classList.add('on'); b.setAttribute('aria-pressed', 'true');
   const f = Number(b.dataset.frac), {a, px, mode} = ticketValues(); if (!a || !(px > 0)) return;
   let q;
   if (SIDE === 'buy') q = Math.max(0, (buyingPower() - S.settings.commission) * f) / (px * (1 + S.settings.slip / 100));
   else { const h = S.holdings[a.s]; q = h ? (h.qty - reservedQty(a.s)) * f : 0; }
   q = Math.floor(q * 1e6) / 1e6;
   $('oQty').value = mode === 'usd' ? (q * px).toFixed(2) : String(q);
-  updateTicket();
+  updateTicket(); msg('oMsg', `${b.textContent.trim()} selected. Review the quantity and submit your paper order.`);
 });
 $('orderForm').addEventListener('submit', e => {
   e.preventDefault();
@@ -1406,6 +1417,15 @@ $('setForm').addEventListener('submit', e => { e.preventDefault(); const c = Num
   S.name = $('sName').value.trim().slice(0, 24) || 'Investor'; S.settings.commission = c; S.settings.slip = sl; S.settings.sim247 = $('s247').checked;
   const live = $('sLive').checked; if (live !== S.settings.live) { S.settings.live = live; if (live) feedConnect(); else feedClose(); }
   save(); msg('setMsg', 'Saved.'); render(); });
+$('quickDeposit').addEventListener('submit', e => {
+  e.preventDefault();
+  try {
+    const t = cashFlow('Deposit', Number($('quickDepositAmt').value), Date.now(), 'Virtual USDC deposit');
+    msg('quickDepositMsg', `${money(t.amount)} virtual USDC added. Your paper cash and portfolio value are updated.`);
+    save();
+  } catch (err) { msg('quickDepositMsg', err.message, true); }
+  render();
+});
 $('cashForm').addEventListener('submit', e => { e.preventDefault(); try { const t = cashFlow($('cAct').value, Number($('cAmt').value), Date.now(), 'Manual'); msg('cashMsg', `${t.type} of ${money(t.amount)} done.`); save(); } catch (err) { msg('cashMsg', err.message, true); } render(); });
 $('resetDemo').addEventListener('click', () => { if (!confirm('Replace everything with the demo portfolio?')) return; const live = S.settings.live; seedDemo(); S.settings.live = live; BT = null; save(); fillSettings(); render(); });
 $('resetEmpty').addEventListener('click', () => { if (!confirm('Erase all positions and start with $100,000 cash?')) return; const live = S.settings.live; S = freshState(); S.settings.live = live; cashFlow('Deposit', 100000, Date.now(), 'Starting cash'); BT = null; SER = null; save(); fillSettings(); render(); });
