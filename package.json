@@ -1,0 +1,15 @@
+{
+  "name": "ghost-paper-desk",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "test": "node --test tests/desk-engine.test.js tests/desk-signal.test.js && vitest run tests/paper-desk.vitest.test.mjs"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

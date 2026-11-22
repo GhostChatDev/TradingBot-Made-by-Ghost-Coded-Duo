@@ -48,6 +48,14 @@
     try { save(D.setQuote(book, Number($('quote-price').value))); render(); }
     catch (err) { $('quote-status').textContent = err.message; }
   });
+  $('bot-suggest').addEventListener('click', () => {
+    const suggestion = D.signal(book);
+    $('bot-signal').textContent = `${suggestion.action} · ${suggestion.reason}`;
+    if (suggestion.action !== 'WATCH') {
+      $('action').value = suggestion.action;
+      $('size').disabled = suggestion.action === 'FLAT';
+    }
+  });
   $('ticket-form').addEventListener('submit', (event) => {
     event.preventDefault();
     try {
