@@ -145,7 +145,7 @@ tr.sel td{background:#14193a}
           <div class="head"><div><h2 id="selName">No token selected</h2><p id="selSub">Pick a launch from the live feed.</p></div><div style="text-align:right"><div class="big" id="selMc">-- <small>SOL</small></div><div class="change" id="selChg">&nbsp;</div></div></div>
           <div class="body">
             <svg class="chart" id="chart" viewBox="0 0 600 210" preserveAspectRatio="none" role="img" aria-label="Market cap chart"></svg>
-            <div class="tfs" id="tfs" role="group" aria-label="Chart window"><button type="button" data-win="60" class="on">1m</button><button type="button" data-win="300">5m</button><button type="button" data-win="0">All</button></div>
+            <div class="tfs" id="tfs" role="group" aria-label="Chart window"><button type="button" data-win="60" class="on" aria-pressed="true">1m</button><button type="button" data-win="300" aria-pressed="false">5m</button><button type="button" data-win="0" aria-pressed="false">All</button></div>
           </div>
         </section>
         <section class="card" id="positions" aria-label="Open positions">
@@ -494,10 +494,23 @@ $('manualForm').addEventListener('submit', ev => {
 });
 $('resetBtn').addEventListener('click', guard(() => { App.paper = Paper.create(Date.now()); setMsg('tMsg', 'Paper account reset to 5 SOL.'); }));
 $('tRotate').addEventListener('change', () => { App.rotate = $('tRotate').checked; render(); });
-document.querySelectorAll('.pills button').forEach(b => b.addEventListener('click', () => { $('tSize').value = b.getAttribute('data-size'); }));
+const sizeButtons = document.querySelectorAll('.pills button');
+function updateSizeSelection() {
+  sizeButtons.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.size) === Number($('tSize').value))));
+}
+sizeButtons.forEach(b => b.addEventListener('click', () => {
+  $('tSize').value = b.dataset.size;
+  updateSizeSelection();
+  setMsg('tMsg', 'Paper size set to ' + b.dataset.size + ' SOL.');
+}));
+$('tSize').addEventListener('input', updateSizeSelection);
+updateSizeSelection();
 document.querySelectorAll('#tfs button').forEach(b => b.addEventListener('click', () => {
   App.win = Number(b.getAttribute('data-win'));
-  document.querySelectorAll('#tfs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('#tfs button').forEach(x => {
+    x.classList.toggle('on', x === b);
+    x.setAttribute('aria-pressed', String(x === b));
+  });
   render();
 }));
 setInterval(() => {
