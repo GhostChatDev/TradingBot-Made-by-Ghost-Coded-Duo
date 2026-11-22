@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080e12">
+  <title>Ghost Desk — Paper trading</title>
+  <link rel="stylesheet" href="desk.css">
+  <script defer src="desk-engine.js"></script>
+  <script defer src="desk.js"></script>
+</head>
+<body>
+<header class="top"><a class="brand" href="index.html"><span class="brand-mark">G</span> GHOST DESK</a><nav aria-label="Navigation"><a href="index.html">Home</a><a href="terminal.html">Terminal</a></nav><span class="status">● PAPER ONLY</span></header>
+<main>
+  <section class="intro"><div><p class="eyebrow">YOUR SIMULATION WORKSPACE</p><h1>Paper trading desk</h1><p>Test a BTC idea without placing a real order. Every price is supplied by you.</p></div><span class="badge">BTC-USD · PAPER</span></section>
+  <div class="notice"><strong>Simulation, not a broker.</strong> Paper cash and trades are saved on this browser only. The desk never places orders or accesses a private key.</div>
+  <section class="stats" aria-label="Paper account summary">
+    <article class="stat"><p>Paper cash</p><strong id="cash">—</strong><span>Simulated USD</span></article>
+    <article class="stat"><p>Position value</p><strong id="position">—</strong><span id="quantity">No BTC held</span></article>
+    <article class="stat"><p>Paper equity</p><strong id="equity">—</strong><span>Cash + position</span></article>
+    <article class="stat"><p>Realized P&amp;L</p><strong id="pnl">—</strong><span>Closed paper trades</span></article>
+  </section>
+  <div class="grid">
+    <div class="stack">
+      <section class="card"><div class="card-head"><div><p class="eyebrow">01 / MARKET INPUT</p><h2>Set a simulated quote</h2></div><span class="pill">MANUAL</span></div><p class="muted">Enter a price you checked yourself. This is not a live market feed.</p><form id="quote-form" class="row"><label for="quote-price">BTC price in USD<input id="quote-price" type="number" min="0.01" max="100000000" step="0.01" value="100000" required></label><button type="submit">Update quote</button></form><p id="quote-status" class="helper" aria-live="polite">No quote yet. The example is not a live price.</p></section>
+      <section class="card"><div class="card-head"><div><p class="eyebrow">02 / PAPER TICKET</p><h2>Draft a trade</h2></div><span class="pill">HUMAN REVIEW</span></div><p class="muted">These are your own checks, not automated analyst opinions. If either disagrees, the ticket is watch-only.</p><form id="ticket-form" class="form"><div class="row"><label for="action">Action<select id="action"><option value="LONG">Paper long</option><option value="FLAT">Close position</option></select></label><label for="size">Entry size (USD)<input id="size" type="number" min="0.01" max="25" step="0.01" value="25" required></label></div><div class="row"><label for="scout">Scout check<select id="scout"><option value="agree">Agree</option><option value="disagree">Disagree</option></select></label><label for="bear">Bear check<select id="bear"><option value="agree">Agree</option><option value="disagree">Disagree</option></select></label></div><button type="submit">Create paper ticket</button></form><div class="gate" id="gate" role="status">No ticket yet. Set a quote and create a ticket.</div><button id="fill" type="button" class="secondary" disabled>Confirm paper fill</button><p class="helper">Limits: $25 per entry · $100 open cost · $50 daily realized-loss halt · 120-second quote · 0.2% max drift. A fill is never automatic.</p></section>
+    </div>
+    <div class="stack">
+      <section class="card"><div class="card-head"><div><p class="eyebrow">03 / CRYPTO RECEIVE</p><h2>External wallet</h2></div><span class="pill">SEPARATE</span></div><p class="muted">Connect an EVM wallet to see its address and native-coin balance. Crypto sent there belongs to that wallet, not this app. It will not fund your paper account.</p><div class="wallet-box"><p id="wallet-status" role="status">No wallet connected.</p><p id="wallet-network" class="helper"></p><p id="wallet-address" class="address"></p><p id="wallet-balance" class="helper"></p></div><div class="actions"><button id="connect" type="button" class="secondary">Connect wallet</button><button id="copy" type="button" class="secondary" disabled>Copy address</button><button id="disconnect" type="button" class="secondary" disabled>Forget wallet</button></div><p class="helper">Check the network and address in your wallet before sending crypto. This app cannot detect deposits or credit a trading balance. No wallet provider? Install an EVM wallet separately.</p></section>
+      <section class="card"><div class="card-head"><div><p class="eyebrow">04 / ACTIVITY</p><h2>Paper journal</h2></div><span class="pill" id="trade-count">0 FILLS</span></div><p class="muted">Local records only. No fees, slippage or real execution are simulated.</p><div id="journal" class="journal"><p class="empty">No paper fills yet. Your confirmed fills will appear here.</p></div></section>
+    </div>
+  </div>
+  <footer>Ghost Desk · Paper only · Not financial advice</footer>
+</main>
+</body>
+</html>
