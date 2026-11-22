@@ -13,7 +13,17 @@
   }
   function setQuote(book, price, now = Date.now()) {
     if (!validPrice(price) || !Number.isFinite(now)) throw new Error('Enter a valid positive simulated BTC price.');
-    return { ...book, quote: { price, at: now } };
+    return { ...book, previousQuote: book.quote, quote: { price, at: now } };
+  }
+  // A transparent demonstration signal from two manually entered prices, not market research.
+  function signal(book, now = Date.now()) {
+    const previous = book.previousQuote, current = book.quote;
+    const fresh = (q) => q && validPrice(q.price) && Number.isFinite(q.at) && Number.isFinite(now) && q.at <= now && now - q.at <= limits.quoteAge;
+    if (!fresh(previous) || !fresh(current) || previous.at > current.at) return { action: 'WATCH', reason: 'Enter two fresh simulated quotes within 120 seconds to generate a signal.' };
+    const change = (current.price / previous.price - 1) * 100;
+    if (change >= 0.5) return { action: 'LONG', reason: `Price rose ${change.toFixed(2)}% from the previous manual quote.` };
+    if (change <= -0.5 && book.quantity > 0) return { action: 'FLAT', reason: `Price fell ${Math.abs(change).toFixed(2)}% from the previous manual quote.` };
+    return { action: 'WATCH', reason: `Price changed ${change.toFixed(2)}%; no entry or close signal.` };
   }
   function draft(book, input, now = Date.now(), id = globalThis.crypto?.randomUUID?.()) {
     if (!book.quote) throw new Error('Set a simulated quote first.');
@@ -55,5 +65,5 @@
     const trade = { id: ticket.id, action: ticket.action, amount, price, pnl, time: new Date(now).toISOString() };
     return { ...book, cash, quantity, cost, draft: null, journal: [trade, ...book.journal] };
   }
-  return { limits, createBook, setQuote, draft, gate, fill };
+  return { limits, createBook, setQuote, signal, draft, gate, fill };
 });
