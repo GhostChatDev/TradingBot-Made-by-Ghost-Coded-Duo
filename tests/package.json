@@ -1,0 +1,6 @@
+{
+  "name": "browser-checks",
+  "private": true,
+  "type": "commonjs",
+  "description": "The browser checks in this folder are CommonJS (they use require). This file marks the folder so Node does not treat them as ES modules."
+}
