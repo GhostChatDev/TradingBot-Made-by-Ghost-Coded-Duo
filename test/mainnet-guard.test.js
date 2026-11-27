@@ -33,10 +33,24 @@ function recorder() {
 
 test('the flag is off unless it is exactly the string true', () => {
   assert.equal(mainnetLiveEnabled({}), false);
-  assert.equal(mainnetLiveEnabled({ [MAINNET_LIVE_FLAG]: 'false' }), false);
-  assert.equal(mainnetLiveEnabled({ [MAINNET_LIVE_FLAG]: '1' }), false);
-  assert.equal(mainnetLiveEnabled({ [MAINNET_LIVE_FLAG]: 'yes' }), false);
-  assert.equal(mainnetLiveEnabled({ [MAINNET_LIVE_FLAG]: 'true' }), true);
+  assert.equal(mainnetLiveEnabled({ [MAINNET_FLAG]: 'false' }), false);
+  assert.equal(mainnetLiveEnabled({ [MAINNET_FLAG]: '1' }), false);
+  assert.equal(mainnetLiveEnabled({ [MAINNET_FLAG]: 'yes' }), false);
+  assert.equal(mainnetLiveEnabled({ [MAINNET_FLAG]: 'true' }), true);
+});
+
+test('there is exactly one switch: no other env name unlocks mainnet', () => {
+  assert.equal(MAINNET_FLAG, 'MAINNET_ENABLED');
+  for (const alias of ['MAINNET_LIVE', 'MAINNET', 'LIVE']) {
+    assert.equal(
+      mainnetLiveEnabled({ [alias]: 'true' }),
+      false,
+      `${alias} must not unlock mainnet; MAINNET_ENABLED is the only flag`,
+    );
+    assert.equal(resolveMode('mainnet', { [alias]: 'true' }), 'paper');
+  }
+  const guard = readFileSync(new URL('../server/mainnet-guard.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(guard, /ALIAS/, 'no alias export is kept in the guard');
 });
 
 test('with the flag unset, building a mainnet transaction throws and logs why', () => {
@@ -132,6 +146,46 @@ test('a win compounds into the next position, a loss shrinks it', () => {
   const loss = afterClose({ sizeCents: 3000, realisedCents: 3000, pnlCents: -600 });
   assert.equal(loss.nextSizeCents, 2400);
   assert.ok(loss.nextSizeCents >= 0);
+});
+
+test('the first stop loss shrinks the run instead of ending it', () => {
+  // The run starts with a 5.00 USD stake: a -20% stop on a 5.00 position loses 1.00.
+  const firstLoss = afterClose({
+    sizeCents: START_BANKROLL_CENTS,
+    realisedCents: 0,
+    pnlCents: -100,
+  });
+  assert.equal(firstLoss.realisedCents, -100);
+  assert.equal(firstLoss.bankrollCents, 400, 'the stake survives the loss: 500 - 100');
+  assert.equal(firstLoss.nextSizeCents, 400, 'the run continues with the 4.00 left');
+  assert.equal(firstLoss.goalReached, false);
+  assert.match(firstLoss.note, /compounding/);
+
+  // Three losses in a row still leave a runnable position (500 -> 400 -> 320 -> 256).
+  let state = { realisedCents: 0, sizeCents: START_BANKROLL_CENTS };
+  for (const expected of [400, 320, 256]) {
+    const pnlCents = -Math.round(state.sizeCents * STOP_LOSS_PCT / 100);
+    const step = afterClose({ sizeCents: state.sizeCents, realisedCents: state.realisedCents, pnlCents });
+    assert.equal(step.nextSizeCents, expected);
+    state = { realisedCents: step.realisedCents, sizeCents: step.nextSizeCents };
+  }
+
+  // Only when the bankroll falls under the smallest position does the run stop.
+  const broke = afterClose({ sizeCents: 120, realisedCents: -460, pnlCents: -20 });
+  assert.equal(broke.bankrollCents, 20);
+  assert.equal(broke.nextSizeCents, 0);
+  assert.match(broke.note, /the run stops/);
+});
+
+test('a full watchlist rotates instead of stopping after three tokens', () => {
+  const mints = DEFAULT_WATCHLIST.map((t) => t.mint);
+  const allDone = new Set(mints);
+  const again = nextToken(DEFAULT_WATCHLIST, mints[1], allDone);
+  assert.ok(again, 'a three-token watchlist keeps rotating');
+  assert.notEqual(again.mint, mints[1], 'never re-enters the token just closed');
+  assert.ok(mints.includes(again.mint));
+  const solo = nextToken([DEFAULT_WATCHLIST[0]], DEFAULT_WATCHLIST[0].mint, new Set());
+  assert.equal(solo, null, 'a one-token watchlist has nowhere to rotate to');
 });
 
 test('the run stops at the 5000 USD goal', () => {
