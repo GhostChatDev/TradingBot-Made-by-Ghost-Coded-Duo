@@ -935,11 +935,25 @@ jobs:
             let started = "no Start button (pressed Enter and Space)";
             phase = " (while playing the game for 10 s)";
             if (await start.count().catch(() => 0)) {
+              const words = () => page.evaluate(() => document.body.innerText.replace(/[0-9]+/g, "").replace(/\s+/g, " ").trim()).catch(() => "");
+              const textBefore = await words();
               if (mobile) await start.tap({ timeout: 3000 }).catch(() => {}); else await start.click({ timeout: 3000 }).catch(() => {});
               await page.waitForTimeout(WAIT * 700);
+              // Many games open a briefing first (Play, then Deploy). Press through up to 3 such screens, like a player would.
+              // Real run: Banana Signal (Play, then a briefing with Deploy) failed as "Start did nothing" and "the page is blank".
+              for (let step = 0; step < 3; step++) {
+                const through = page.getByRole("button", { name: /^\s*(deploy|launch|go|ready|confirm|ok|okay|fight|enter|let'?s go|continue|next)\b/i }).filter({ visible: true }).first();
+                if (!(await through.count().catch(() => 0))) break;
+                if (mobile) await through.tap({ timeout: 2000 }).catch(() => {}); else await through.click({ timeout: 2000 }).catch(() => {});
+                await page.waitForTimeout(WAIT * 500);
+              }
               const stillThere = await start.isVisible().catch(() => false);
               const after = await gameState(page);
-              started = (before !== null ? after === before : stillThere) ? "did nothing" : "started";
+              // window.game only tells something when it has a screen, level or score. One with none of them reads null before and
+              // after, which is not "nothing happened": then the page itself decides (the Start button left, or the screen's words changed).
+              const informative = (st) => st !== null && !/^\{"screen":null,"level":null,"score":null\}$/.test(st);
+              const moved = informative(before) || informative(after) ? after !== before : false;
+              started = moved || !stillThere || (await words()) !== textBefore ? "started" : "did nothing";
             } else {
               await page.keyboard.press("Enter").catch(() => {});
               await page.keyboard.press("Space").catch(() => {});
@@ -990,12 +1004,21 @@ jobs:
               const measure = () => page.evaluate(() => {
                 const clipOf = (el) => {
                   let box = { l: 0, t: 0, r: Math.max(document.documentElement.scrollWidth, window.innerWidth), b: Math.max(document.documentElement.scrollHeight, window.innerHeight) };
+                  // The body's "overflow: hidden" is taken up by the window, so it clips to the window, not to the body's own height.
+                  // Real run: a game whose whole screen was position: fixed inside a body with no height of its own (so a body box of
+                  // height 0) was failed as "blank" on every screen size, with 346 words in view.
+                  const rootVisible = getComputedStyle(document.documentElement).overflow === "visible";
+                  // A position: fixed box is placed against the window, so the ancestors above it don't clip it (unless one has a
+                  // transform or filter, which becomes its containing block).
+                  let fixed = false;
                   for (let a = el; a && a !== document.documentElement; a = a.parentElement) {
                     const s = getComputedStyle(a);
-                    if (s.overflowX !== "visible" || s.overflowY !== "visible") {
-                      const r = a.getBoundingClientRect();
+                    if (fixed && (s.transform !== "none" || s.filter !== "none")) fixed = false;
+                    if (!fixed && (s.overflowX !== "visible" || s.overflowY !== "visible")) {
+                      const r = a === document.body && rootVisible ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight } : a.getBoundingClientRect();
                       box = { l: Math.max(box.l, r.left), t: Math.max(box.t, r.top), r: Math.min(box.r, r.right), b: Math.min(box.b, r.bottom) };
                     }
+                    if (s.position === "fixed") fixed = true;
                   }
                   return box;
                 };
