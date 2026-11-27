@@ -173,8 +173,9 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
     }
     const draftId = String(req.body?.draftId || '');
     const signature = String(req.body?.signature || '');
-    // A Solana signature is 64 bytes written in base58: 86-88 characters.
-    if (!/^[1-9A-HJ-NP-Za-km-z]{86,88}$/.test(signature)) {
+    // The wallet returns a base58-encoded 64-byte signature (86-88 characters);
+    // some wallets hand back the raw signature instead, so lengths from 43 up are taken.
+    if (!/^[1-9A-HJ-NP-Za-km-z]{43,90}$/.test(signature)) {
       res.status(400).json({ error: 'bad_signature', message: 'That does not look like a wallet signature.' });
       return;
     }
