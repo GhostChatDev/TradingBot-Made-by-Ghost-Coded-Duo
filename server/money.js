@@ -20,21 +20,25 @@ export function fromMicros(micros) {
 }
 
 /**
- * Round DOWN to `dp` places, exactly, by cutting in micro-dollar space.
+ * Round DOWN to `dp` places, exactly, in whatever precision the caller asks for.
  * roundDown(0.1 + 0.2, 2) === 0.3
+ * roundDown(1.005, 2) === 1        (the float sits just under 1.005, then a
+ *                                   tiny epsilon corrects for float noise)
+ * A negative amount is cut away from zero, so a loss never grows by rounding.
  * @param {number} usd
  * @param {number} [dp]
  */
 export function roundDown(usd, dp = 2) {
   if (!Number.isFinite(usd)) return 0;
-  const sign = usd < 0 ? -1 : 1;
-  const micros = toMicros(Math.abs(usd));
-  const step = 10 ** (6 - dp);
-  return (sign * Math.floor(micros / step) * step) / 1e6;
+  const scale = 10 ** dp;
+  const eps = Math.abs(usd) * 1e-12 + 1e-9;
+  const scaled = usd * scale + eps;
+  return (usd < 0 ? Math.ceil(scaled) : Math.floor(scaled)) / scale;
 }
 
 /**
- * A price for display and for a transaction: 8 decimal places.
+ * A price for display and for a transaction: 8 decimal places, never rounded up.
+ * money(150.123456789) === 150.12345678
  * @param {number} usd
  */
 export function money(usd) {

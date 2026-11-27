@@ -5,6 +5,7 @@ import { HARD_MAX_DAILY_LOSS_USD, HARD_MAX_TRADE_USD } from './config.js';
 import { crossoverSignal } from './strategy.js';
 import { Db } from './db.js';
 import { history, paperFee } from './prices.js';
+import { toMicros, fromMicros } from './money.js';
 
 export const STRATEGIES = ['sma_crossover'];
 
