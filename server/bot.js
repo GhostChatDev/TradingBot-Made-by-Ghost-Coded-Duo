@@ -52,10 +52,6 @@ export function checkRisk(db, userId, notionalUsd, today) {
   const maxTrade = Math.min(Number(user?.max_trade_usd ?? 5), HARD_MAX_TRADE_USD);
   const maxLoss = Math.min(Number(user?.max_daily_loss_usd ?? 10), HARD_MAX_DAILY_LOSS_USD);
 
-  const bots = db.prepare('SELECT running FROM bots WHERE user_id = ?').all(userId);
-  if (bots.some((b) => Number(b.running) === 0 && db.prepare('SELECT 1').get())) {
-    // a bot that was stopped stays stopped; handled per-bot below
-  }
   const stopped = db
     .prepare("SELECT stop_reason FROM bots WHERE user_id = ? AND stop_reason = 'STOP' ORDER BY updated_at DESC LIMIT 1")
     .get(userId);
@@ -96,7 +92,75 @@ export function checkRisk(db, userId, notionalUsd, today) {
  * @property {string} reason
  * @property {string} status
  * @property {string|null} [signature]
+ * @property {number} [avgCostUsd]
  */
+
+/** The bot row this account's risk numbers live on, created if missing. */
+function ensureBotRow(db, userId) {
+  const existing = db.prepare('SELECT id FROM bots WHERE user_id = ? ORDER BY created_at LIMIT 1').get(userId);
+  if (existing) return String(existing.id);
+  const id = crypto.randomUUID();
+  db.prepare(
+    "INSERT INTO bots (id, user_id, market, strategy, params, running, stop_reason, losses_usd, loss_day) VALUES (?, ?, 'SOL/USD', 'sma_crossover', '{}', 0, NULL, 0, NULL) ON CONFLICT(id) DO NOTHING",
+  ).run(id, userId);
+  return id;
+}
+
+/**
+ * Realised result of a trade against the position it closes: profit or loss in
+ * whole micro-dollars. A buy opens (or adds to) a position and has no result.
+ * @param {TradeRecord} t
+ * @param {{qty: number, avgCostUsd: number}} pos
+ * @returns {number} micro-dollars; negative is a loss
+ */
+export function realisedMicros(t, pos) {
+  if (t.side !== 'sell' || pos.qty <= 0) return 0;
+  const closingQty = Math.min(t.qty, pos.qty);
+  const proceeds = toMicros(t.priceUsd * closingQty) - toMicros(t.feeUsd);
+  const cost = toMicros(pos.avgCostUsd * closingQty);
+  return proceeds - cost;
+}
+
+/**
+ * Write the position after a trade back onto the bot row, and add any realised
+ * loss to today's running loss (a gain never subtracts from it).
+ * @param {Db} db
+ * @param {string} userId
+ * @param {TradeRecord} t
+ */
+export function applyPosition(db, userId, t) {
+  const botId = ensureBotRow(db, userId);
+  const row = db.prepare('SELECT qty_usd, avg_cost_usd, losses_usd, loss_day FROM bots WHERE id = ?').get(botId);
+  const day = String(t.at || new Date().toISOString()).slice(0, 10);
+  const heldMicros = toMicros(Number(row?.qty_usd ?? 0));
+  let costMicros = toMicros(Number(row?.avg_cost_usd ?? 0));
+  let posQty = heldMicros > 0 && costMicros > 0 ? heldMicros / costMicros : 0;
+
+  const micros = realisedMicros(t, { qty: posQty, avgCostUsd: fromMicros(costMicros) });
+  const sameDay = String(row?.loss_day ?? '') === day;
+  let lossesMicros = sameDay ? toMicros(Number(row?.losses_usd ?? 0)) : 0;
+  if (micros < 0) lossesMicros += -micros;
+
+  if (t.side === 'buy') {
+    // Average cost of the position after adding this buy.
+    const addCost = toMicros(t.notionalUsd) + toMicros(t.feeUsd);
+    const newCost = costMicros + addCost;
+    costMicros = newCost;
+    posQty += t.qty;
+  } else {
+    posQty = Math.max(0, posQty - Math.min(t.qty, posQty));
+    if (posQty === 0) costMicros = 0;
+  }
+
+  db.prepare("UPDATE bots SET qty_usd = ?, avg_cost_usd = ?, losses_usd = ?, loss_day = ?, updated_at = datetime('now') WHERE id = ?").run(
+    fromMicros(costMicros),
+    fromMicros(posQty > 0 ? costMicros / posQty : 0),
+    fromMicros(lossesMicros),
+    day,
+    botId,
+  );
+  return { botId, realisedUsd: fromMicros(micros), lossesUsd: fromMicros(lossesMicros) };
+}
 
 /**
  * Record a trade. Paper trades never carry a transaction or a signature.
