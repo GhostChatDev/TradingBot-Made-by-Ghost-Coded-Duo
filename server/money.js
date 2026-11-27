@@ -32,8 +32,8 @@ export function roundDown(usd, dp = 2) {
   if (!Number.isFinite(usd)) return 0;
   const scale = 10 ** dp;
   const eps = Math.abs(usd) * 1e-12 + 1e-9;
-  const scaled = usd * scale + eps;
-  return (usd < 0 ? Math.ceil(scaled) : Math.floor(scaled)) / scale;
+  const scaled = Math.floor(Math.abs(usd) * scale + eps);
+  return usd < 0 ? -scaled / scale : scaled / scale;
 }
 
 /**

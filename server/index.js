@@ -165,6 +165,40 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
     });
   });
 
+  app.post('/api/bot/confirm', refuseKeyMaterial, (req, res) => {
+    const user = sessionUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'sign_in', message: 'Sign in with your wallet first.' });
+      return;
+    }
+    const draftId = String(req.body?.draftId || '');
+    const signature = String(req.body?.signature || '');
+    // A Solana signature is 64 bytes written in base58: 86-88 characters.
+    if (!/^[1-9A-HJ-NP-Za-km-z]{86,88}$/.test(signature)) {
+      res.status(400).json({ error: 'bad_signature', message: 'That does not look like a wallet signature.' });
+      return;
+    }
+    // Scoped to this account: another account's draft reads as missing, not as forbidden.
+    const draft = db.prepare("SELECT id, status, mode, side, market FROM trades WHERE id = ? AND user_id = ? AND mode = 'devnet'").get(draftId, user.id);
+    if (!draft) {
+      res.status(404).json({ error: 'not_found', message: 'No such draft for this account.' });
+      return;
+    }
+    if (String(draft.status) !== 'awaiting_wallet_signature') {
+      res.status(409).json({ error: 'already_confirmed', message: 'That draft was already approved.' });
+      return;
+    }
+    const changed = db.prepare(
+      "UPDATE trades SET status = 'devnet_submitted', signature = ?, draft_at = ? WHERE id = ? AND user_id = ? AND status = 'awaiting_wallet_signature'",
+    ).run(signature, new Date().toISOString(), draftId, user.id);
+    if (!changed.changes) {
+      res.status(409).json({ error: 'already_confirmed', message: 'That draft was already approved.' });
+      return;
+    }
+    logEvent(db, user.id, 'devnet_submitted', `Devnet ${String(draft.side).toUpperCase()} approved in your wallet for ${String(draft.market)}`);
+    res.json({ ok: true, draftId, status: 'devnet_submitted' });
+  });
+
   app.get('/api/bot/state', (req, res) => {
     const user = sessionUser(req);
     if (!user) {

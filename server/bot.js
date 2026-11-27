@@ -143,10 +143,10 @@ export function applyPosition(db, userId, t) {
   if (micros < 0) lossesMicros += -micros;
 
   if (t.side === 'buy') {
-    // Average cost of the position after adding this buy.
-    const addCost = toMicros(t.notionalUsd) + toMicros(t.feeUsd);
-    const newCost = costMicros + addCost;
-    costMicros = newCost;
+    // Cost basis is what was paid: price x quantity plus the fee. The same
+    // formula the sell side uses for proceeds, so a loss is never invented by
+    // mixing a request's notional with a market price.
+    costMicros += toMicros(t.priceUsd * t.qty) + toMicros(t.feeUsd);
     posQty += t.qty;
   } else {
     posQty = Math.max(0, posQty - Math.min(t.qty, posQty));
@@ -267,12 +267,31 @@ export function tick(db, p) {
     return { decision, trade: { id, status: 'paper_filled', signature: null }, blocked: null };
   }
 
-  // Devnet: no transaction is built here on purpose. The browser builds it with
-  // the user's own wallet and the server only ever sees a signature to relay.
-  logEvent(db, userId, 'draft', 'Devnet draft queued for your wallet to approve', botId ?? null);
+  // Devnet: the server never builds or signs a transaction. It stores the draft
+  // the user's own wallet will approve, so the approval can be checked once.
+  const draftId = crypto.randomUUID();
+  const approvalMessage = `Ghost Bot devnet approval\n${decision.signal.toUpperCase()} ${(notionalUsd / decision.price).toFixed(8)} ${market}\nat $${decision.price}\nreason: ${decision.reason}\ndraft: ${draftId}`;
+  db.prepare(
+    `INSERT INTO trades (id, user_id, bot_id, mode, market, side, qty, price_usd, notional_usd, fee_usd, reason, status, signature, draft_tx, draft_at)
+     VALUES (?, ?, ?, 'devnet', ?, ?, ?, ?, ?, ?, ?, 'awaiting_wallet_signature', NULL, ?, ?)`,
+  ).run(
+    draftId,
+    userId,
+    botId ?? null,
+    market,
+    decision.signal,
+    Number((notionalUsd / decision.price).toFixed(8)),
+    decision.price,
+    notionalUsd,
+    paperFee(notionalUsd),
+    decision.reason,
+    approvalMessage,
+    new Date().toISOString(),
+  );
+  logEvent(db, userId, 'draft', `Devnet draft for your wallet to approve: ${decision.signal.toUpperCase()} $${notionalUsd.toFixed(2)}`, botId ?? null);
   return {
     decision,
-    trade: { status: 'awaiting_wallet_signature', signature: null },
+    trade: { id: draftId, draftId, status: 'awaiting_wallet_signature', signature: null, draftTx: approvalMessage },
     blocked: null,
   };
 }
