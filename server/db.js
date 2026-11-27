@@ -1,8 +1,9 @@
-// server/db.js - SQLite connection + a tiny forward-only migration runner.
+// server/db.js - SQLite connection (node:sqlite, built into Node 22) + a tiny
+// forward-only migration runner.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // SQLite migrations live next to the server on purpose: the repository is also
@@ -11,23 +12,86 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.join(here, 'migrations');
 
 /**
+ * Small wrapper so call sites read like better-sqlite3: prepare().get/run/all
+ * pluss a transaction() helper.
+ */
+class Db {
+  /**
+   * @param {string} databasePath
+   */
+  constructor(databasePath) {
+    if (databasePath !== ':memory:') {
+      fs.mkdirSync(path.dirname(path.resolve(databasePath)), { recursive: true });
+    }
+    this.raw = new DatabaseSync(databasePath);
+    this.raw.exec('PRAGMA journal_mode = WAL');
+    this.raw.exec('PRAGMA foreign_keys = ON');
+  }
+
+  /**
+   * @param {string} sql
+   */
+  prepare(sql) {
+    const stmt = this.raw.prepare(sql);
+    return {
+      /** @param {any[]} params */
+      get: (...params) => stmt.get(...params),
+      /** @param {any[]} params */
+      all: (...params) => stmt.all(...params),
+      /**
+       * @param {any[]} params
+       * @returns {{changes: number, lastInsertRowid: number}}
+       */
+      run: (...params) => {
+        const info = stmt.run(...params);
+        return { changes: Number(info.changes), lastInsertRowid: Number(info.lastInsertRowid) };
+      },
+    };
+  }
+
+  /** @param {string} sql */
+  exec(sql) {
+    this.raw.exec(sql);
+  }
+
+  close() {
+    this.raw.close();
+  }
+
+  /**
+   * Run a function inside one transaction; roll back if it throws.
+   * @template T
+   * @param {() => T} fn
+   * @returns {() => T}
+   */
+  transaction(fn) {
+    return () => {
+      this.raw.exec('BEGIN IMMEDIATE');
+      try {
+        const out = fn();
+        this.raw.exec('COMMIT');
+        return out;
+      } catch (err) {
+        this.raw.exec('ROLLBACK');
+        throw err;
+      }
+    };
+  }
+}
+
+/**
  * Open (and migrate) the database.
  * @param {string} databasePath
  */
 export function openDb(databasePath) {
-  if (databasePath !== ':memory:') {
-    fs.mkdirSync(path.dirname(path.resolve(databasePath)), { recursive: true });
-  }
-  const db = new Database(databasePath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  const db = new Db(databasePath);
   migrate(db);
   return db;
 }
 
 /**
- * Apply every migrations/NNN_*.sql file once, in file-name order.
- * @param {import('better-sqlite3').Database} db
+ * Apply every server/migrations/NNN_*.sql file once, in file-name order.
+ * @param {Db} db
  */
 export function migrate(db) {
   db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -53,8 +117,7 @@ export function migrate(db) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
- * @param {URLSearchParams|Record<string,string>} params
+ * @param {any} row
  */
 export function rowToUser(row) {
   if (!row) return null;
@@ -66,3 +129,4 @@ export function rowToUser(row) {
     createdAt: String(row.created_at),
   };
 }
+
