@@ -13,13 +13,13 @@ create an **API key** and call the paid API. Real funds trading and real payment
 npm install
 cp .env.example .env      # every value there is a fake placeholder
 npm start                 # http://localhost:3000
-npm test                  # 21 tests (node:test)
+npm test                  # 30 tests (node:test)
 npm run typecheck         # tsc --noEmit
 ```
 
 - Node 22 or newer (the app uses the built-in `node:sqlite`).
 - `DATABASE_PATH=./data/bot.sqlite` — the SQLite file. The folder is created on first start.
-  Migrations in `migrations/*.sql` run automatically, in order, at startup.
+  Migrations in `server/migrations/*.sql` run automatically, in order, at startup.
 - `API_KEY_PEPPER` — server-only secret used to hash API keys. Change it before anyone uses this.
   API keys are stored **only** as a salted hash; the plaintext key is shown once, when created.
 
