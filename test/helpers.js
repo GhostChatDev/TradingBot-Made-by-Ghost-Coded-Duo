@@ -102,3 +102,15 @@ export async function authedPost(/** @type {string} */ base, /** @type {string} 
 export async function authedGet(/** @type {string} */ base, /** @type {string} */ token, /** @type {string} */ urlPath) {
   return fetch(`${base}${urlPath}`, { headers: { authorization: `Bearer ${token}` } });
 }
+
+/**
+ * Narrow a value that may be `undefined` (node:sqlite's .get() type) to one row,
+ * failing the test with a clear message instead of a TypeError.
+ * @template T
+ * @param {T | undefined} row
+ * @returns {T}
+ */
+export function one(row) {
+  if (row === undefined) throw new Error('expected one row, got none');
+  return row;
+}

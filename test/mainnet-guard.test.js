@@ -79,10 +79,12 @@ test('requesting mainnet without the flag resolves to paper and says so', () => 
 });
 
 test('loadConfig refuses a mainnet TRADING_MODE while the flag is unset', () => {
-  const cfg = loadConfig({ TRADING_MODE: 'mainnet' });
+  // A valid pepper, so this test is about the mainnet refusal and not about the pepper.
+  const pepper = { API_KEY_PEPPER: 'guard-test-pepper-0123456789' };
+  const cfg = loadConfig({ ...pepper, TRADING_MODE: 'mainnet' });
   assert.equal(cfg.mode, 'paper', 'no mainnet without MAINNET_ENABLED');
   assert.equal(cfg.mainnetEnabled, false);
-  const live = loadConfig({ TRADING_MODE: 'mainnet', [MAINNET_FLAG]: 'true' });
+  const live = loadConfig({ ...pepper, TRADING_MODE: 'mainnet', [MAINNET_FLAG]: 'true' });
   assert.equal(live.mode, 'mainnet');
   assert.equal(live.mainnetEnabled, true);
 });

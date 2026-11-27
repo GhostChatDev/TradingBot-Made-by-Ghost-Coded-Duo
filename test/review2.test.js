@@ -2,7 +2,7 @@
 // test that fails on the code as it was before the fix.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startTestServer, signedInUser } from './helpers.js';
+import { startTestServer, signedInUser, one } from './helpers.js';
 import { tick } from '../server/bot.js';
 import { loadConfig, readPepper } from '../server/config.js';
 
@@ -37,11 +37,13 @@ test('a mainnet tick stores a mainnet draft, not a devnet one', async (t) => {
   assert.match(String(result.trade.draftTx), /^Ghost Bot mainnet approval/, 'the draft says mainnet');
   assert.doesNotMatch(String(result.trade.draftTx), /devnet/, 'the draft never claims to be devnet');
 
-  const row = srv.db.prepare('SELECT mode, draft_tx FROM trades WHERE user_id = ?').get(userId);
+  const row = one(srv.db.prepare('SELECT mode, draft_tx FROM trades WHERE user_id = ?').get(userId));
   assert.equal(String(row.mode), 'mainnet', 'the stored trade is labelled mainnet');
   assert.match(String(row.draft_tx), /^Ghost Bot mainnet approval/);
 
-  const event = srv.db.prepare("SELECT message FROM bot_events WHERE user_id = ? AND kind = 'draft'").get(userId);
+  const event = one(
+    srv.db.prepare("SELECT message FROM bot_events WHERE user_id = ? AND kind = 'draft'").get(userId),
+  );
   assert.match(String(event.message), /^Mainnet draft/, 'the log line says mainnet');
 });
 
@@ -66,7 +68,7 @@ test('a mainnet tick with the flag unset throws and writes nothing', async (t) =
       {},
     ),
   );
-  const rows = srv.db.prepare('SELECT COUNT(*) AS n FROM trades WHERE user_id = ?').get(userId);
+  const rows = one(srv.db.prepare('SELECT COUNT(*) AS n FROM trades WHERE user_id = ?').get(userId));
   assert.equal(Number(rows.n), 0, 'no trade row is written');
 });
 
