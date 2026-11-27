@@ -11,6 +11,7 @@ import { getBalance, ledger, spend, grantTestCredits, ensureAccount } from './cr
 import { evaluate, tick, checkRisk, recentEvents, recentTrades, logEvent } from './bot.js';
 import { markets, history } from './prices.js';
 import { findKeyMaterial, redact, CUSTODY_STATEMENT } from './custody.js';
+import { base58Decode } from './base58.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -95,7 +96,8 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
     let ok = false;
     try {
       const msg = new TextEncoder().encode(`Sign in to Solana Bot Demo\nwallet: ${wallet}\nnonce: ${entry.nonce}`);
-      ok = nacl.sign.detached.verify(msg, Buffer.from(signature, 'base64'), Buffer.from(wallet, 'utf8'));
+      // The wallet string is base58; the ed25519 public key is its 32 raw bytes.
+      ok = nacl.sign.detached.verify(msg, Buffer.from(signature, 'base64'), base58Decode(wallet));
     } catch {
       ok = false;
     }
