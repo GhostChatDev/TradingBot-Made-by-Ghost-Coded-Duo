@@ -1,8 +1,11 @@
 name: Web dashboard checks
 on:
   push:
-  pull_request:
   workflow_dispatch:
+# One run per commit (no second run for the pull request); a newer push cancels the older run.
+concurrency:
+  group: web-dashboard-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   browser:
     runs-on: ubuntu-24.04
@@ -14,6 +17,9 @@ jobs:
           node-version: 22
       - name: Install Chromium and Playwright
         run: |
+          # The runner image ships a Microsoft apt source that now answers 403, which makes
+          # every apt-get call (and so --with-deps) exit 100. Drop that source, not the deps.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/*prod.list
           npm install --no-save --no-package-lock playwright@latest
           npx playwright install --with-deps chromium
       - name: Run browser checks

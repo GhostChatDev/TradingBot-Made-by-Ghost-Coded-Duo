@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solana bot demo — paper &amp; devnet, non-custodial</title>
+<style>
+  :root{
+    --bg:#0d1117; --surface:#161b22; --surface-2:#1c2330; --border:#2b3441;
+    --text:#e6edf3; --muted:#9aa7b4; --accent:#4cc2ff; --success:#3fb950; --danger:#f85149; --warn:#d29922;
+    --radius:10px; --gap:12px;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5}
+  header{border-bottom:1px solid var(--border);background:var(--surface);padding:14px 16px}
+  h1{font-size:17px;margin:0 0 6px;font-weight:650}
+  h2{font-size:15px;margin:0 0 8px;font-weight:650}
+  h3{font-size:14px;margin:14px 0 6px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  main{max-width:1040px;margin:0 auto;padding:16px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted)}
+  .badge.on{color:var(--success);border-color:#1f6f3a}
+  .badge.off{color:var(--warn);border-color:#6b5312}
+  nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  nav button{min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer}
+  nav button[aria-selected="true"]{background:var(--surface);color:var(--text);border-color:var(--accent)}
+  section[hidden]{display:none}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:var(--gap)}
+  .row{display:flex;flex-wrap:wrap;gap:var(--gap);align-items:flex-end}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  input,select{min-height:44px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;width:100%}
+  button.primary,button.ghost,button.stop{min-height:44px;padding:0 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--border)}
+  button.primary{background:var(--accent);color:#04212f;border-color:var(--accent)}
+  button.ghost{background:var(--surface-2);color:var(--text)}
+  button.stop{background:var(--danger);color:#fff;border-color:var(--danger);width:100%;font-size:16px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:focus-visible,nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .field{flex:1 1 160px;min-width:140px}
+  .disclaimer{border-left:3px solid var(--warn);background:#1f1a0d;color:#f0e0b8;padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:var(--gap)}
+  .hint{font-size:13px;color:var(--muted)}
+  .msg{font-size:14px;margin-top:10px;min-height:21px}
+  .msg.err{color:var(--danger)} .msg.ok{color:var(--success)}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+  pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+  .log{max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  td.num{font-variant-numeric:tabular-nums;text-align:right}
+  .wrap-x{overflow-x:auto}
+  .grid2{display:grid;grid-template-columns:1fr;gap:var(--gap)}
+  @media(min-width:820px){.grid2{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Solana bot demo — non-custodial, paper &amp; devnet</h1>
+  <div class="badges" id="badges"><span class="badge">loading mode…</span></div>
+</header>
+<nav id="tabs" role="tablist">
+  <button role="tab" data-tab="connect" aria-selected="true">1. Connect wallet</button>
+  <button role="tab" data-tab="strategy" aria-selected="false">2. Strategy &amp; mode</button>
+  <button role="tab" data-tab="pump" aria-selected="false">3. Pump.fun paper run</button>
+  <button role="tab" data-tab="bot" aria-selected="false">4. Bot, log &amp; STOP</button>
+  <button role="tab" data-tab="keys" aria-selected="false">5. API keys</button>
+  <button role="tab" data-tab="credits" aria-selected="false">6. Credits &amp; usage</button>
+  <button role="tab" data-tab="risks" aria-selected="false">7. How it works &amp; what can go wrong</button>
+</nav>
+<main>
+  <div class="disclaimer" id="disclaimer">General information and software, not financial advice. You can lose everything you put in.</div>
+
+  <section id="tab-connect">
+    <div class="card">
+      <h2>Connect with your own wallet</h2>
+      <p class="hint">This app never holds your funds or keys. It asks your wallet (Phantom or Solflare) to sign a one-time message so it knows who you are. No private key or seed phrase is ever asked for, stored or logged.</p>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="btn-connect">Connect wallet &amp; sign in</button>
+        <button class="ghost" id="btn-signout">Sign out</button>
+      </div>
+      <div class="msg" id="connect-msg"></div>
+      <h3>Status</h3>
+      <p class="hint" id="session-status">Not signed in.</p>
+    </div>
+  </section>
+
+  <section id="tab-strategy" hidden>
+    <div class="card">
+      <h2>Mode</h2>
+      <div class="row">
+        <div class="field">
+          <label for="mode">Where trades are recorded</label>
+          <select id="mode">
+            <option value="paper" selected>Paper — fake balance, live-shaped prices</option>
+            <option value="devnet">Devnet — free test SOL, your wallet signs</option>
+            <option value="mainnet" disabled>Mainnet — switched off (needs the owner's switch)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="market">Market</label>
+          <select id="market"><option>SOL/USD</option></select>
+        </div>
+      </div>
+      <p class="hint" id="mode-note" style="margin-top:8px"></p>
+    </div>
+    <div class="card">
+      <h2>Strategy: moving-average crossover</h2>
+      <p class="hint">Buy when the fast average crosses above the slow average, sell when it crosses below, otherwise hold. Nothing here predicts the future.</p>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label for="fast">Fast average (2–50)</label><input id="fast" type="number" min="2" max="50" value="5"></div>
+        <div class="field"><label for="slow">Slow average (3–200)</label><input id="slow" type="number" min="3" max="200" value="20"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Your limits</h2>
+      <p class="hint">You can lower these, never remove them. The server clamps them to its hard caps.</p>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label for="maxTrade">Max per trade (USD)</label><input id="maxTrade" type="number" min="1" step="1" value="5"></div>
+        <div class="field"><label for="maxLoss">Max daily loss (USD)</label><input id="maxLoss" type="number" min="1" step="1" value="10"></div>
+        <button class="primary" id="btn-limits">Save limits</button>
+      </div>
+      <div class="msg" id="limits-msg"></div>
+    </div>
+  </section>
+
+  <section id="tab-pump" hidden>
+    <div class="card">
+      <h2>Pump.fun rule set — paper only, prices simulated</h2>
+      <p class="hint" id="pump-rules">Loading rules…</p>
+      <div class="grid" style="margin-top:12px">
+        <div class="stat"><div class="hint">Position size</div><div class="big" id="pump-size">—</div></div>
+        <div class="stat"><div class="hint">Realised (paper)</div><div class="big" id="pump-realised">—</div></div>
+        <div class="stat"><div class="hint">Open position</div><div class="big" id="pump-open">—</div></div>
+        <div class="stat"><div class="hint">Unrealised (paper)</div><div class="big" id="pump-unrealised">—</div></div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="primary" id="btn-pump-step">Run one paper mark</button>
+        <button class="ghost" id="btn-pump-auto">Run 10 marks</button>
+      </div>
+      <p class="hint" id="pump-msg" style="margin-top:8px">Sign in to run the paper rule set.</p>
+      <p class="hint">Every number above is simulated by this app. It is not live pump.fun data and it is not a result you could expect from real money.</p>
+    </div>
+    <div class="card">
+      <h2>Closed paper positions</h2>
+      <div class="wrap-x"><table><thead><tr><th>Time</th><th>Token</th><th>Why</th><th class="num">Result</th></tr></thead><tbody id="pump-closed"><tr><td colspan="4" class="hint">Nothing closed yet.</td></tr></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="tab-bot" hidden>
+    <div class="card">
+      <h2>Run</h2>
+      <div class="row">
+        <button class="primary" id="btn-tick">Run one step</button>
+        <button class="ghost" id="btn-auto">Start auto steps (every 10s)</button>
+        <button class="ghost" id="btn-clear-stop">Clear STOP</button>
+      </div>
+      <p class="hint" id="bot-status" style="margin-top:8px">Not signed in.</p>
+      <div class="msg" id="bot-msg"></div>
+      <div style="margin-top:14px"><button class="stop" id="btn-stop">STOP — halt the bot now</button></div>
+    </div>
+    <div class="card">
+      <h2>Log of every decision</h2>
+      <div class="log wrap-x"><table><thead><tr><th>Time</th><th>Kind</th><th>Message</th></tr></thead><tbody id="events"><tr><td colspan="3" class="hint">No entries yet.</td></tr></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>Trades</h2>
+      <div class="wrap-x"><table><thead><tr><th>Time</th><th>Mode</th><th>Side</th><th class="num">Size</th><th>Reason</th><th>Status</th></tr></thead><tbody id="trades"><tr><td colspan="6" class="hint">No trades yet.</td></tr></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="tab-keys" hidden>
+    <div class="card">
+      <h2>API keys</h2>
+      <p class="hint">Only a hash is stored. The key is shown once, at creation.</p>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label for="key-label">Label</label><input id="key-label" value="my key" maxlength="60"></div>
+        <button class="primary" id="btn-create-key">Create key</button>
+      </div>
+      <div class="msg" id="keys-msg"></div>
+      <pre id="new-key" hidden></pre>
+      <div class="wrap-x" style="margin-top:10px"><table><thead><tr><th>Label</th><th>Prefix</th><th>Created</th><th>Status</th><th></th></tr></thead><tbody id="keys"><tr><td colspan="5" class="hint">Sign in to list keys.</td></tr></tbody></table></div>
+      <h3>Call it with curl</h3>
+      <pre id="curl">curl -s -X POST http://localhost:3000/api/v1/signal \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"market":"SOL/USD","fast":5,"slow":20}'</pre>
+    </div>
+  </section>
+
+  <section id="tab-credits" hidden>
+    <div class="card">
+      <h2>Credits</h2>
+      <p class="hint" id="credits-summary">Sign in to see your balance.</p>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label for="topup">Test credits to add</label><input id="topup" type="number" min="1" max="1000" value="100"></div>
+        <button class="primary" id="btn-topup">Top up (TEST MODE)</button>
+      </div>
+      <div class="msg" id="credits-msg"></div>
+      <h3>Ledger</h3>
+      <div class="wrap-x"><table><thead><tr><th>Time</th><th>Kind</th><th class="num">Credits</th><th>Reference</th></tr></thead><tbody id="ledger"><tr><td colspan="4" class="hint">No entries.</td></tr></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="tab-risks" hidden>
+    <div class="card">
+      <h2>How it works</h2>
+      <ol class="hint">
+        <li>You sign in with your own wallet. It signs a message, never a transaction you did not see.</li>
+        <li>The bot reads prices, applies the moving-average crossover, and produces a proposal with a written reason.</li>
+        <li>Paper mode records the fill in this app's own database. Devnet mode queues a draft for your wallet to sign; this build never builds or sends a mainnet transaction.</li>
+        <li>Every proposal passes your per-trade cap and daily loss cap first, and STOP halts everything.</li>
+        <li>The paid API charges a fixed number of credits per call, from a prepaid ledger. No credits, no call.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>What can go wrong</h2>
+      <ul class="hint">
+        <li>You can lose all the money you put in. This is an experiment, not financial advice.</li>
+        <li>Paper results and past results do not predict real results. Prices here are simulated, not a live exchange feed, unless the operator sets a real RPC.</li>
+        <li>Bugs, fees, slippage, outages and scams (rug pulls, honeypot tokens) lose money.</li>
+        <li>A server key can be stolen; that is why the app never holds one for your funds.</li>
+        <li>Trading may be taxed or restricted where you live.</li>
+        <li>Mainnet with real funds is switched off. Real payments are switched off; top-ups here are fake money.</li>
+      </ul>
+      <p class="hint">Full detail: <code>RISKS.md</code> and <code>README.md</code> in the repository.</p>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let meta = null;
+  let token = sessionStorage.getItem('bot_token') || '';
+  let wallet = sessionStorage.getItem('bot_wallet') || '';
+  let autoTimer = null;
+
+  const NUMS = new Intl.NumberFormat('en-US', {maximumFractionDigits: 2});
+  const money = (v) => '$' + NUMS.format(Number(v) || 0);
+
+  function say(el, text, kind) {
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  async function api(path, options = {}) {
+    const headers = Object.assign({}, options.headers || {});
+    if (options.body) headers['Content-Type'] = 'application/json';
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch(path, Object.assign({}, options, {headers}));
+    let data = {};
+    try { data = await res.json(); } catch { data = {}; }
+    if (res.status === 401 && token) { signOut('Your session ended. Sign in again.'); }
+    return {status: res.status, ok: res.ok, data};
+  }
+
+  function provider() {
+    if (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom) return window.phantom.solana;
+    if (window.solflare && window.solflare.isSolflare) return window.solflare;
+    if (window.solana && window.solana.isPhantom) return window.solana;
+    return null;
+  }
+
+  function signOut(message) {
+    token = ''; wallet = '';
+    sessionStorage.removeItem('bot_token');
+    sessionStorage.removeItem('bot_wallet');
+    stopAuto();
+    $('session-status').textContent = message || 'Signed out.';
+    renderSession();
+  }
+
+  function renderSession() {
+    if (token && wallet) {
+      $('session-status').textContent = 'Signed in as ' + wallet + ' (session lives in this tab only).';
+      $('bot-status').textContent = 'Signed in. Press "Run one step" to let the strategy decide.';
+    } else {
+      $('session-status').textContent = 'Not signed in.';
+    }
+    $('btn-connect').disabled = Boolean(token);
+  }
+
+  async function loadMeta() {
+    try {
+      const r = await api('/api/meta');
+      meta = r.data;
+      const modeBadge = meta.mode === 'mainnet'
+        ? '<span class="badge off">MAINNET ON (owner switched it)</span>'
+        : '<span class="badge on">MAINNET OFF</span>';
+      const payBadge = meta.payments === 'test'
+        ? '<span class="badge off">PAYMENTS: TEST MODE (fake money)</span>'
+        : '<span class="badge on">PAYMENTS OFF</span>';
+      $('badges').innerHTML =
+        '<span class="badge">server mode: ' + meta.mode + '</span>' + modeBadge + payBadge +
+        '<span class="badge">' + meta.creditsPerSignal + ' credit per API call</span>';
+      $('disclaimer').textContent = meta.disclaimer;
+      const sel = $('market');
+      sel.innerHTML = (meta.markets || []).map((m) => '<option>' + m + '</option>').join('');
+      $('mode-note').textContent = 'Per-trade cap can never exceed ' + money(meta.hardMaxTradeUsd) +
+        ', daily loss cap ' + money(meta.hardMaxDailyLossUsd) + '.';
+    } catch {
+      $('badges').innerHTML = '<span class="badge off">could not read server mode</span>';
+    }
+  }
+
+  async function connect() {
+    const msg = $('connect-msg');
+    const p = provider();
+    if (!p) { say(msg, 'No Solana wallet found in this browser. Install Phantom or Solflare, then reload this page.', 'err'); return; }
+    try {
+      const resp = await p.connect();
+      const addr = (resp && resp.publicKey ? resp.publicKey : p.publicKey).toString();
+      const nonceRes = await api('/api/auth/nonce', {method: 'POST', body: JSON.stringify({wallet: addr})});
+      if (!nonceRes.ok) { say(msg, nonceRes.data.message || 'Could not start sign-in.', 'err'); return; }
+      const encoded = new TextEncoder().encode(nonceRes.data.message);
+      const signed = await p.signMessage(encoded, 'utf8');
+      const bytes = signed && signed.signature ? signed.signature : signed;
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+      const verify = await api('/api/auth/verify', {method: 'POST', body: JSON.stringify({wallet: addr, signature: btoa(binary)})});
+      if (!verify.ok) { say(msg, verify.data.message || 'Signature did not verify.', 'err'); return; }
+      token = verify.data.token; wallet = verify.data.wallet;
+      sessionStorage.setItem('bot_token', token);
+      sessionStorage.setItem('bot_wallet', wallet);
+      renderSession();
+      say(msg, 'Signed in as ' + wallet, 'ok');
+      await refreshBot();
+      await refreshCredits();
+      await refreshKeys();
+    } catch (err) {
+      say(msg, 'Wallet sign-in was cancelled or failed: ' + (err && err.message ? err.message : 'unknown'), 'err');
+    }
+  }
+
+  async function saveLimits() {
+    const msg = $('limits-msg');
+    const maxTradeUsd = Number($('maxTrade').value);
+    const maxDailyLossUsd = Number($('maxLoss').value);
+    if (!(maxTradeUsd > 0) || !(maxDailyLossUsd > 0)) { say(msg, 'Limits must be positive numbers. They can be lowered, not removed.', 'err'); return; }
+    const r = await api('/api/limits', {method: 'POST', body: JSON.stringify({maxTradeUsd, maxDailyLossUsd})});
+    if (!r.ok) { say(msg, r.data.message || 'Could not save limits.', 'err'); return; }
+    $('maxTrade').value = r.data.maxTradeUsd;
+    $('maxLoss').value = r.data.maxDailyLossUsd;
+    say(msg, 'Saved: ' + money(r.data.maxTradeUsd) + ' per trade, ' + money(r.data.maxDailyLossUsd) + ' per day.', 'ok');
+    await refreshBot();
+  }
+
+  async function oneTick() {
+    const msg = $('bot-msg');
+    if (!token) { say(msg, 'Sign in with your wallet first.', 'err'); return; }
+    const body = {
+      mode: $('mode').value === 'devnet' ? 'devnet' : 'paper',
+      market: $('market').value,
+      strategy: 'sma_crossover',
+      params: {fast: Number($('fast').value) || 5, slow: Number($('slow').value) || 20},
+      seed: Math.floor(Date.now() / 60000) % 1000,
+    };
+    const r = await api('/api/bot/tick', {method: 'POST', body: JSON.stringify(body)});
+    if (!r.ok) { say(msg, r.data.message || 'The step failed.', 'err'); return; }
+    const d = r.data.decision || {};
+    let text = d.signal + ' at ' + money(d.price) + ' — ' + d.reason;
+    if (r.data.blocked) text += ' | blocked: ' + r.data.blocked.message;
+    else if (r.data.trade) text += ' | ' + r.data.trade.status;
+    say(msg, text, r.data.blocked ? 'err' : 'ok');
+    await refreshBot();
+  }
+
+  function stopAuto() {
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    $('btn-auto').textContent = 'Start auto steps (every 10s)';
+  }
+
+  function toggleAuto() {
+    if (autoTimer) { stopAuto(); return; }
+    if (!token) { say($('bot-msg'), 'Sign in with your wallet first.', 'err'); return; }
+    oneTick();
+    autoTimer = setInterval(oneTick, 10000);
+    $('btn-auto').textContent = 'Stop auto steps';
+  }
+
+  async function pressStop() {
+    const r = await api('/api/bot/stop', {method: 'POST', body: JSON.stringify({})});
+    stopAuto();
+    say($('bot-msg'), r.ok ? 'STOP pressed. The bot will not trade until you clear it.' : (r.data.message || 'Could not stop.'), r.ok ? 'ok' : 'err');
+    await refreshBot();
+  }
+
+  async function clearStop() {
+    const r = await api('/api/bot/clear-stop', {method: 'POST', body: JSON.stringify({})});
+    say($('bot-msg'), r.ok ? 'STOP cleared.' : (r.data.message || 'Could not clear STOP.'), r.ok ? 'ok' : 'err');
+    await refreshBot();
+  }
+
+  async function refreshBot() {
+    if (!token) return;
+    const r = await api('/api/bot/state');
+    if (!r.ok) return;
+    const bot = r.data.bot || {};
+    $('bot-status').textContent = 'Running: ' + (bot.running ? 'yes' : 'no') +
+      ' | today\u2019s losses: ' + money(bot.lossesUsd) + (bot.stopReason ? ' | STOP: ' + bot.stopReason : '');
+    const ev = r.data.events || [];
+    $('events').innerHTML = ev.length
+      ? ev.map((e) => '<tr><td>' + e.at + '</td><td>' + e.kind + '</td><td>' + escapeHtml(e.message) + '</td></tr>').join('')
+      : '<tr><td colspan="3" class="hint">No entries yet.</td></tr>';
+    const tr = r.data.trades || [];
+    $('trades').innerHTML = tr.length
+      ? tr.map((t) => '<tr><td>' + t.at + '</td><td>' + t.mode + '</td><td>' + t.side + '</td><td class="num">' + money(t.notionalUsd) +
+        '</td><td>' + escapeHtml(t.reason) + '</td><td>' + t.status + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="hint">No trades yet.</td></tr>';
+  }
+
+  async function refreshKeys() {
+    if (!token) { $('keys').innerHTML = '<tr><td colspan="5" class="hint">Sign in to list keys.</td></tr>'; return; }
+    const r = await api('/api/keys');
+    if (!r.ok) return;
+    const rows = r.data.keys || [];
+    $('keys').innerHTML = rows.length
+      ? rows.map((k) => '<tr><td>' + escapeHtml(k.label) + '</td><td>' + k.prefix + '…</td><td>' + k.createdAt +
+        '</td><td>' + (k.revokedAt ? 'revoked' : 'active') + '</td><td><button class="ghost" data-revoke="' + k.id + '">Revoke</button></td></tr>').join('')
+      : '<tr><td colspan="5" class="hint">No keys yet.</td></tr>';
+    $('keys').querySelectorAll('[data-revoke]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const id = b.getAttribute('data-revoke');
+        await api('/api/keys/' + encodeURIComponent(id), {method: 'DELETE'});
+        await refreshKeys();
+      });
+    });
+  }
+
+  async function createKey() {
+    const msg = $('keys-msg');
+    const r = await api('/api/keys', {method: 'POST', body: JSON.stringify({label: $('key-label').value || 'API key'})});
+    if (!r.ok) { say(msg, r.data.message || 'Could not create the key.', 'err'); return; }
+    $('new-key').hidden = false;
+    $('new-key').textContent = 'Copy this key now — it is shown only once:\n' + r.data.key;
+    say(msg, 'Key created. It is stored on the server only as a hash.', 'ok');
+    await refreshKeys();
+  }
+
+  async function refreshCredits() {
+    if (!token) { $('credits-summary').textContent = 'Sign in to see your balance.'; return; }
+    const r = await api('/api/credits');
+    if (!r.ok) return;
+    $('credits-summary').textContent = 'Balance: ' + r.data.balance + ' credits. Each API call costs ' +
+      r.data.perCall + ' credit(s). Payments: ' + r.data.payments + ' (test mode = fake money).';
+    const rows = r.data.entries || [];
+    $('ledger').innerHTML = rows.length
+      ? rows.map((e) => '<tr><td>' + e.at + '</td><td>' + e.kind + '</td><td class="num">' + e.credits +
+        '</td><td>' + escapeHtml(e.reference || '') + '</td></tr>').join('')
+      : '<tr><td colspan="4" class="hint">No entries.</td></tr>';
+  }
+
+  async function topUp() {
+    const msg = $('credits-msg');
+    const r = await api('/api/credits/topup', {method: 'POST', body: JSON.stringify({amount: Number($('topup').value) || 100})});
+    say(msg, r.ok ? (r.data.message + ' Balance: ' + r.data.balance + ' credits.') : (r.data.message || 'Could not top up.'), r.ok ? 'ok' : 'err');
+    await refreshCredits();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  }
+
+  function tab(name) {
+    document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    document.querySelectorAll('main section').forEach((s) => { s.hidden = s.id !== 'tab-' + name; });
+  }
+
+  document.getElementById('tabs').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-tab]');
+    if (b) tab(b.dataset.tab);
+  });
+  $('btn-connect').addEventListener('click', connect);
+  $('btn-signout').addEventListener('click', () => { signOut(); say($('connect-msg'), 'Signed out.', 'ok'); });
+  $('btn-limits').addEventListener('click', saveLimits);
+  $('btn-tick').addEventListener('click', oneTick);
+  $('btn-auto').addEventListener('click', toggleAuto);
+  $('btn-stop').addEventListener('click', pressStop);
+  $('btn-clear-stop').addEventListener('click', clearStop);
+  $('btn-create-key').addEventListener('click', createKey);
+  $('btn-topup').addEventListener('click', topUp);
+  $('mode').addEventListener('change', () => {
+    const m = $('mode').value;
+    $('mode-note').textContent = m === 'paper'
+      ? 'Paper: fills are recorded in this app\u2019s database with a fake balance. No transaction is built.'
+      : 'Devnet: free test SOL. This build queues a draft; it never sends a mainnet transaction. Mainnet needs the owner\u2019s switch.';
+  });
+
+  async function refreshPump() {
+    if (!token) { $('pump-msg').textContent = 'Sign in to run the paper rule set.'; return; }
+    const r = await api('/api/pump');
+    if (!r.ok) return;
+    const d = r.data;
+    const ru = d.rules || {};
+    $('pump-rules').textContent = 'Take profit at +$' + ru.takeProfitUsd + ', stop loss at ' + ru.stopLossPct +
+      '%, compound wins, stop the run at $' + ru.goalUsd + ' realised. Size is capped by your per-trade limit.';
+    $('pump-size').textContent = money(d.sizeCents);
+    $('pump-realised').textContent = money(d.realisedCents);
+    $('pump-open').textContent = d.open ? (d.open.symbol || d.open.mint) + ' · ' + money(d.open.entryCents) : 'none';
+    $('pump-unrealised').textContent = d.open ? money(d.open.unrealisedCents) : '—';
+    const cl = d.closed || [];
+    $('pump-closed').innerHTML = cl.length
+      ? cl.map((c) => '<tr><td>' + escapeHtml(String(c.at)) + '</td><td>' + escapeHtml(String(c.symbol)) + '</td><td>' +
+        escapeHtml(c.action === 'take_profit' ? 'take profit' : 'stop loss') + '</td><td class="num">' + money(c.pnlCents) + '</td></tr>').join('')
+      : '<tr><td colspan="4" class="hint">Nothing closed yet.</td></tr>';
+    if (d.goalReached) $('pump-msg').textContent = 'The paper run reached its goal and stopped. Simulated only.';
+  }
+
+  async function pumpStep(times) {
+    if (!token) { $('pump-msg').textContent = 'Sign in first.'; return; }
+    for (let i = 0; i < times; i += 1) {
+      const r = await api('/api/pump/step', { method: 'POST', body: JSON.stringify({ mode: 'paper' }) });
+      if (!r.ok) { $('pump-msg').textContent = r.data.message || 'The paper step failed.'; return; }
+    }
+    $('pump-msg').textContent = 'Ran ' + times + ' paper mark(s). Simulated prices.';
+    await refreshPump();
+    await refreshBot();
+  }
+
+  $('tabs').addEventListener('click', (e) => {
+    const b = /** @type {HTMLElement} */ (e.target).closest('[data-tab]');
+    if (b && b.dataset.tab === 'pump') refreshPump();
+  });
+  $('btn-pump-step').addEventListener('click', () => pumpStep(1));
+  $('btn-pump-auto').addEventListener('click', () => pumpStep(10));
+
+  renderSession();
+  loadMeta();
+  if (token) { refreshBot(); refreshCredits(); refreshKeys(); refreshPump(); }
+})();
+</script>
+</body>
+</html>

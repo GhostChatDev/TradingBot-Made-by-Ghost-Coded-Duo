@@ -1,3 +1,100 @@
+# Solana trading bot — non-custodial, paper & devnet, mainnet OFF
+
+A web app in this folder: connect your own wallet (Phantom / Solflare), pick a moving-average
+crossover, run it in **paper** mode against live prices, read the decision log, press **STOP**,
+create an **API key** and call the paid API. Real funds trading and real payments are **off**.
+
+> **General information and software, not financial advice. You can lose everything you put in.**
+> Read [RISKS.md](RISKS.md) before switching anything on.
+
+## Run it
+
+```bash
+npm install
+cp .env.example .env      # every value there is a fake placeholder
+npm start                 # http://localhost:3000
+npm test                  # 43 tests (node:test)
+npm run typecheck         # tsc --noEmit
+```
+
+- Node 22 or newer (the app uses the built-in `node:sqlite`).
+- `DATABASE_PATH=./data/bot.sqlite` — the SQLite file. The folder is created on first start.
+  Migrations in `server/migrations/*.sql` run automatically, in order, at startup.
+- `API_KEY_PEPPER` — server-only secret used to hash API keys. Change it before anyone uses this.
+  API keys are stored **only** as a salted hash; the plaintext key is shown once, when created.
+
+## What is paper, what is devnet, what is off
+
+| Mode | Where | Money | How to get there |
+|---|---|---|---|
+| **Paper** (default) | `public/` UI | Fake balance. The price feed in this build is the clearly labelled **simulated** feed (`priceSource: "simulated"`), so paper mode works offline; a live feed drops in at `server/prices.js#history` | Nothing to set up — it is the default |
+| **Devnet** | Same UI, mode switch | Free test SOL, no real value | Switch the mode; your wallet signs each devnet transaction |
+| **Mainnet (real funds)** | — | Real money | **Off.** Two things must both change: `MAINNET_ENABLED=true` in the server environment *and* the in-app switch. Ships off; the server refuses a mainnet request while it is off |
+| **Payments** | Credits page | Fake money | **Off.** `PAYMENTS_MODE=test` gives test top-ups only. Real payments stay off until you switch them on after legal review |
+| **Pepper** | Server-only | — | **Required for the API.** `API_KEY_PEPPER` (16+ characters, `openssl rand -hex 32`). Without it the app still boots and paper trading works, but API keys and `/api/v1/*` return 503, so no key hash is ever made with a value published in this repo. A test run gets its own fixed value |
+
+Credits are an **internal balance for API calls**, never crypto held for anyone.
+
+## Screens
+
+Connect wallet · Strategy (params + paper/devnet switch + limits) · Bot and live log (decisions,
+fills, blocked reasons, STOP) · API keys (create, prefix, revoke) · Usage and credits (TEST
+top-ups) · Risks ("How it works and what can go wrong").
+
+## The paid API
+
+```bash
+# 1. Sign in with your wallet in the app, then create a key on the API keys page.
+# 2. Ask for a signal (costs CREDITS_PER_SIGNAL credits, default 1):
+curl -s -X POST http://localhost:3000/api/v1/signal \
+  -H "Authorization: Bearer sb_sk_..." -H 'content-type: application/json' \
+  -d '{"market":"SOL/USD"}'
+
+# 3. Check what you spent:
+curl -s http://localhost:3000/api/v1/usage -H "Authorization: Bearer sb_sk_..."
+```
+
+- Missing, wrong or revoked key → `401`. Rate limit per key → `429`.
+- No credits → `402 {"error":"no_credits"}` and the strategy does **not** run.
+- Credits are debited atomically, by exactly `CREDITS_PER_SIGNAL`, never below zero, even with
+  two calls at once.
+
+## Turning real trading or real payments on (you, not the app)
+
+1. Read [RISKS.md](RISKS.md) and get advice for your country.
+2. Prove the whole flow on **devnet** first.
+3. Only then set `MAINNET_ENABLED=true`, restart, and choose mainnet in the app. Start at the
+   smallest cap; the caps can be lowered but never removed, and STOP always halts the bot.
+4. Payments: replace the TEST top-up handler with a real provider (webhook-verified, server-side)
+   and set `PAYMENTS_MODE` accordingly. Nothing else in the app needs to change.
+
+## The pump.fun paper run (screen 3)
+
+`server/pumpfun.js` holds the rules, `server/pump-run.js` runs them and `server/migrations/002_pumpfun_run.sql`
+stores the run. Every mark is **paper**: take-profit, stop-loss, rotate to the next token, and compound
+wins back into the position size. Prices come from a deterministic simulated feed, so the same run
+replays the same numbers — no real order is ever built or sent here.
+
+- `GET /api/pump` — the run, its open position, what closed and the rule summary.
+- `POST /api/pump/step` — one paper mark; each decision is written to the log with its reason.
+
+**Delivery setting.** How a trade draft reaches you is a setting, `json` by default
+(`server/delivery.js`): the draft is returned as JSON in the response, never posted anywhere.
+Drafts are swept by a retention step so they do not pile up. No address is required to run the
+bot, and the app never asks for a deposit address or a private key.
+
+## Where the code is
+
+`server/index.js` (Express app, routes, wallet sign-in) · `server/config.js` (every safety switch
+and the hard caps) · `server/bot.js` (signal → risk gate → paper fill or devnet draft) ·
+`server/pumpfun.js` + `server/pump-run.js` (pump.fun paper rules and the run) ·
+`server/delivery.js` (draft delivery + retention) ·
+`server/strategy.js` · `server/prices.js` · `server/keys.js` (hash + rate limit) ·
+`server/credits.js` (ledger) · `server/custody.js` (refuses key material, redacts logs) ·
+`server/db.js` + `server/migrations/` · `public/index.html` (the UI) · `test/*.test.js`.
+
+---
+
 > **New:** [`pumpbot.html`](pumpbot.html) is a pump.fun paper auto-trading bot (launch scanner, entry filters, take-profit ladder, risk limits, backtester). See [PUMPBOT.md](PUMPBOT.md).
 >
 > [`terminal.html`](terminal.html) is a full paper-trading terminal (portfolio dashboard, charts, orders, bot, alerts, analytics). See [TERMINAL.md](TERMINAL.md) for the feature list. The pump.fun launch terminal is still at [`index.html`](index.html).
@@ -225,3 +322,6 @@ Do not trade this live because it is written down. It is a testable hypothesis.
 **Where the evidence is weak:** any claim about average profit after graduation, the exact top-10 cutoff, the 15-minute wait, and the +30/+70 targets. Those are risk constraints chosen so a test can fail cheaply. They are not results. The strong evidence is the base rate, the bundle profits, the dev sell speed, and the cost stack. That evidence says most bots here are exit liquidity.
 
 If you want a next step inside Ghost Chat, the useful one is a one-page backtest spec (fields, filters, and the pass/fail table) before any bot code.
+
+---
+<img src="https://ghostchat.tech/icons/ghost-code-dev.png" width="20" height="20" alt="" align="top"> Built by [Ghost Code Dev](https://ghostchat.tech)
