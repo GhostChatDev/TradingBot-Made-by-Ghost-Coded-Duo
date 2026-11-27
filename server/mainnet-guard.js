@@ -66,7 +66,7 @@ export function resolveMode(requested, env = process.env, logger = defaultLogger
   if (wanted === 'devnet') return 'devnet';
   if (wanted !== 'mainnet') return 'paper';
   if (!mainnetLiveEnabled(env)) {
-    logger.log(`${MAINNET_LIVE_FLAG} unset, so mainnet is refused and this server runs paper. ${REFUSAL_REASON}`);
+    logger.log(`${MAINNET_FLAG} unset, so mainnet is refused and this server runs paper. ${REFUSAL_REASON}`);
     return 'paper';
   }
   return 'mainnet';

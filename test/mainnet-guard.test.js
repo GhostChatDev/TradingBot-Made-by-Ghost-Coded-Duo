@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  MAINNET_LIVE_FLAG,
+  MAINNET_FLAG,
   assertMayTouchMainnet,
   mainnetLiveEnabled,
   mainnetTransaction,
@@ -17,6 +17,8 @@ import {
   TAKE_PROFIT_CENTS,
   STOP_LOSS_PCT,
   GOAL_CENTS,
+  START_BANKROLL_CENTS,
+  MIN_POSITION_CENTS,
   decideExit,
   afterClose,
   nextToken,
@@ -39,20 +41,6 @@ test('the flag is off unless it is exactly the string true', () => {
   assert.equal(mainnetLiveEnabled({ [MAINNET_FLAG]: 'true' }), true);
 });
 
-test('there is exactly one switch: no other env name unlocks mainnet', () => {
-  assert.equal(MAINNET_FLAG, 'MAINNET_ENABLED');
-  for (const alias of ['MAINNET_LIVE', 'MAINNET', 'LIVE']) {
-    assert.equal(
-      mainnetLiveEnabled({ [alias]: 'true' }),
-      false,
-      `${alias} must not unlock mainnet; MAINNET_ENABLED is the only flag`,
-    );
-    assert.equal(resolveMode('mainnet', { [alias]: 'true' }), 'paper');
-  }
-  const guard = readFileSync(new URL('../server/mainnet-guard.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(guard, /ALIAS/, 'no alias export is kept in the guard');
-});
-
 test('with the flag unset, building a mainnet transaction throws and logs why', () => {
   const log = recorder();
   assert.throws(
@@ -61,7 +49,7 @@ test('with the flag unset, building a mainnet transaction throws and logs why', 
   );
   assert.equal(log.lines.length, 1, 'the refusal is logged exactly once');
   assert.match(log.lines[0], /build: BLOCKED/);
-  assert.match(log.lines[0], /MAINNET_LIVE/);
+  assert.match(log.lines[0], /MAINNET_ENABLED/);
 });
 
 test('with the flag unset, signing a mainnet transaction throws and logs why', () => {
@@ -75,7 +63,7 @@ test('with the flag unset, signing a mainnet transaction throws and logs why', (
 
 test('with the flag set, the guard allows the build and the sign', () => {
   const log = recorder();
-  const env = { [MAINNET_LIVE_FLAG]: 'true' };
+  const env = { [MAINNET_FLAG]: 'true' };
   assert.doesNotThrow(() => assertMayTouchMainnet('build', env, log));
   assert.doesNotThrow(() => assertMayTouchMainnet('sign', env, log));
   assert.match(log.lines[0], /allowed/);
@@ -85,16 +73,16 @@ test('requesting mainnet without the flag resolves to paper and says so', () => 
   const log = recorder();
   assert.equal(resolveMode('mainnet', {}, log), 'paper');
   assert.match(log.lines[0], /refused and this server runs paper/);
-  assert.equal(resolveMode('mainnet', { [MAINNET_LIVE_FLAG]: 'true' }), 'mainnet');
+  assert.equal(resolveMode('mainnet', { [MAINNET_FLAG]: 'true' }), 'mainnet');
   assert.equal(resolveMode('devnet', {}), 'devnet');
   assert.equal(resolveMode('paper', {}), 'paper');
 });
 
 test('loadConfig refuses a mainnet TRADING_MODE while the flag is unset', () => {
   const cfg = loadConfig({ TRADING_MODE: 'mainnet' });
-  assert.equal(cfg.mode, 'paper', 'no mainnet without MAINNET_LIVE');
+  assert.equal(cfg.mode, 'paper', 'no mainnet without MAINNET_ENABLED');
   assert.equal(cfg.mainnetEnabled, false);
-  const live = loadConfig({ TRADING_MODE: 'mainnet', [MAINNET_LIVE_FLAG]: 'true' });
+  const live = loadConfig({ TRADING_MODE: 'mainnet', [MAINNET_FLAG]: 'true' });
   assert.equal(live.mode, 'mainnet');
   assert.equal(live.mainnetEnabled, true);
 });

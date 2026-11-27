@@ -87,7 +87,7 @@ export function decideExit(pos, priceMicros) {
  * A win compounds: the next position is the previous size plus the profit.
  * A loss shrinks it: the next position is what is left.
  * @param {{sizeCents: number, realisedCents: number, pnlCents: number}} p
- * @returns {{ nextSizeCents: number, realisedCents: number, goalReached: boolean, sizeCents: number, note: string }}
+ * @returns {{ nextSizeCents: number, realisedCents: number, bankrollCents: number, goalReached: boolean, sizeCents: number, note: string }}
  */
 export function afterClose(p) {
   // realisedCents is the run's cumulative profit and loss (it starts at 0 and may be
