@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import nacl from 'tweetnacl';
-import { loadConfig, clampLimit, DISCLAIMER, HARD_MAX_TRADE_USD, HARD_MAX_DAILY_LOSS_USD } from './config.js';
+import { loadConfig, pepperFor, clampLimit, DISCLAIMER, HARD_MAX_TRADE_USD, HARD_MAX_DAILY_LOSS_USD } from './config.js';
 import {openDb, rowToUser, Db} from './db.js';
 import { createKey, listKeys, revokeKey, authenticate, checkRateLimit } from './keys.js';
 import { getBalance, ledger, spend, grantTestCredits, ensureAccount } from './credits.js';
@@ -59,6 +59,22 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
       return;
     }
     next();
+  };
+
+  /**
+   * The pepper for API key hashes, or null when this server has none. Without it the
+   * app still runs every screen and paper trading; only the API key endpoints refuse,
+   * instead of the whole server failing to start.
+   * @param {any} cfg
+   * @returns {string | null}
+   */
+  const pepperOrNull = (cfg) => pepperFor(cfg);
+
+  const NO_PEPPER = {
+    error: 'api_keys_disabled',
+    message:
+      'This server has no API_KEY_PEPPER set, so API keys and the paid API are disabled. ' +
+      'An operator must set API_KEY_PEPPER (16+ characters) and restart the server.',
   };
 
   app.get('/api/meta', (_req, res) => {
@@ -317,7 +333,12 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
       res.status(401).json({ error: 'sign_in', message: 'Sign in with your wallet first.' });
       return;
     }
-    const made = createKey(db, user.id, String(req.body?.label || 'API key'), config.keyPepper);
+    const pepper = pepperOrNull(config);
+    if (!pepper) {
+      res.status(503).json(NO_PEPPER);
+      return;
+    }
+    const made = createKey(db, user.id, String(req.body?.label || 'API key'), pepper);
     res.status(201).json({ key: made.key, id: made.id, prefix: made.prefix, label: made.label, shownOnce: true });
   });
 
@@ -363,7 +384,12 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
 
   // ---- the paid public API -------------------------------------------------
   app.post('/api/v1/signal', refuseKeyMaterial, (req, res) => {
-    const auth = authenticate(db, bearer(req), config.keyPepper);
+    const pepper = pepperOrNull(config);
+    if (!pepper) {
+      res.status(503).json(NO_PEPPER);
+      return;
+    }
+    const auth = authenticate(db, bearer(req), pepper);
     if (!auth) {
       res.status(401).json({ error: 'unauthorized', message: 'Send a valid key as "Authorization: Bearer <key>".' });
       return;
@@ -416,7 +442,12 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
   });
 
   app.get('/api/v1/usage', (req, res) => {
-    const auth = authenticate(db, bearer(req), config.keyPepper);
+    const pepper = pepperOrNull(config);
+    if (!pepper) {
+      res.status(503).json(NO_PEPPER);
+      return;
+    }
+    const auth = authenticate(db, bearer(req), pepper);
     if (!auth) {
       res.status(401).json({ error: 'unauthorized', message: 'Send a valid key as "Authorization: Bearer <key>".' });
       return;
