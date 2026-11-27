@@ -7,6 +7,13 @@
 /** The single environment flag that unlocks live mainnet trading. */
 export const MAINNET_LIVE_FLAG = 'MAINNET_LIVE';
 
+/**
+ * The name this flag was first documented under (README, RISKS.md, .env.example).
+ * It is accepted as an alias so the documented steps actually work. Both unset
+ * still means off; the app ships with neither set.
+ */
+export const MAINNET_ENABLED_ALIAS = 'MAINNET_ENABLED';
+
 /** Why the guard refused. Written to the log and returned to the caller. */
 export const REFUSAL_REASON =
   'Refused: live mainnet trading is off. Set MAINNET_LIVE=true in the server environment to allow it. ' +
@@ -18,7 +25,10 @@ export const REFUSAL_REASON =
  * @returns {boolean}
  */
 export function mainnetLiveEnabled(env = process.env) {
-  return String(env[MAINNET_LIVE_FLAG] ?? '').trim().toLowerCase() === 'true';
+  const reads = (/** @type {string} */ name) => String(env[name] ?? '').trim().toLowerCase() === 'true';
+  // Either documented name switches it on; anything other than the exact string
+  // "true" counts as off, and unset means off.
+  return reads(MAINNET_LIVE_FLAG) || reads(MAINNET_ENABLED_ALIAS);
 }
 
 /**

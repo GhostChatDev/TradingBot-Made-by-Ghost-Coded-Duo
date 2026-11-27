@@ -51,8 +51,26 @@ export function checkRisk(db, userId, notionalUsd, today) {
   const user = db
     .prepare('SELECT max_trade_usd, max_daily_loss_usd FROM users WHERE id = ?')
     .get(userId);
-  const maxTrade = Math.min(Number(user?.max_trade_usd ?? 5), HARD_MAX_TRADE_USD);
-  const maxLoss = Math.min(Number(user?.max_daily_loss_usd ?? 10), HARD_MAX_DAILY_LOSS_USD);
+
+  // A limit must always be a usable number. If it cannot be read, trading stops
+  // instead of running unbounded: an unreadable cap is not the same as no cap.
+  const readCap = (/** @type {unknown} */ raw) => {
+    if (raw === null || raw === undefined) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const savedTrade = readCap(user?.max_trade_usd);
+  const savedLoss = readCap(user?.max_daily_loss_usd);
+  if (savedTrade === null || savedLoss === null) {
+    return {
+      allowed: false,
+      blockedBy: 'limits_unreadable',
+      message: 'Your limits could not be read, so trading is halted. Set them again; they are always capped.',
+    };
+  }
+  // The hard caps win over anything saved: a cap can be lowered, never raised past them.
+  const maxTrade = Math.min(savedTrade, HARD_MAX_TRADE_USD);
+  const maxLoss = Math.min(savedLoss, HARD_MAX_DAILY_LOSS_USD);
 
   const stopped = db
     .prepare("SELECT stop_reason FROM bots WHERE user_id = ? AND stop_reason = 'STOP' ORDER BY updated_at DESC LIMIT 1")
@@ -136,29 +154,39 @@ export function applyPosition(db, userId, t) {
   const botId = ensureBotRow(db, userId);
   const row = db.prepare('SELECT qty_usd, avg_cost_usd, losses_usd, loss_day FROM bots WHERE id = ?').get(botId);
   const day = String(t.at || new Date().toISOString()).slice(0, 10);
-  const heldMicros = toMicros(Number(row?.qty_usd ?? 0));
-  let costMicros = toMicros(Number(row?.avg_cost_usd ?? 0));
-  let posQty = heldMicros > 0 && costMicros > 0 ? heldMicros / costMicros : 0;
 
-  const micros = realisedMicros(t, { qty: posQty, avgCostUsd: fromMicros(costMicros) });
+  // The two stored columns are kept apart on purpose:
+  //   qty_usd      = the TOTAL cost basis of what is held, in USD
+  //   avg_cost_usd = the AVERAGE price paid per unit, in USD
+  // Never add a cost to an average price: that is what turned $150 into $11,000.
+  const basisMicros = toMicros(Number(row?.qty_usd ?? 0)); // total cost paid
+  const avgPriceMicros = toMicros(Number(row?.avg_cost_usd ?? 0)); // price per unit
+  let posQty = avgPriceMicros > 0 ? basisMicros / avgPriceMicros : 0;
+
+  const micros = realisedMicros(t, { qty: posQty, avgCostUsd: fromMicros(avgPriceMicros) });
   const sameDay = String(row?.loss_day ?? '') === day;
   let lossesMicros = sameDay ? toMicros(Number(row?.losses_usd ?? 0)) : 0;
   if (micros < 0) lossesMicros += -micros;
 
+  let nextBasisMicros;
   if (t.side === 'buy') {
-    // Cost basis is what was paid: price x quantity plus the fee. The same
-    // formula the sell side uses for proceeds, so a loss is never invented by
+    // Cost basis grows by what was paid: price x quantity plus the fee. The same
+    // formula the sell side uses for proceeds, so no loss is ever invented by
     // mixing a request's notional with a market price.
-    costMicros += toMicros(t.priceUsd * t.qty) + toMicros(t.feeUsd);
+    const addedMicros = toMicros(t.priceUsd * t.qty) + toMicros(t.feeUsd);
+    nextBasisMicros = basisMicros + addedMicros;
     posQty += t.qty;
   } else {
+    // A sell removes units; the cost basis shrinks in proportion, so the average
+    // price paid does not move (fees on the sell are in the realised result).
     posQty = Math.max(0, posQty - Math.min(t.qty, posQty));
-    if (posQty === 0) costMicros = 0;
+    nextBasisMicros = posQty === 0 ? 0 : Math.round(avgPriceMicros * posQty);
   }
+  const nextAvgPriceMicros = posQty > 0 ? Math.round(nextBasisMicros / posQty) : 0;
 
   db.prepare("UPDATE bots SET qty_usd = ?, avg_cost_usd = ?, losses_usd = ?, loss_day = ?, updated_at = datetime('now') WHERE id = ?").run(
-    fromMicros(costMicros),
-    fromMicros(posQty > 0 ? costMicros / posQty : 0),
+    fromMicros(nextBasisMicros),
+    fromMicros(nextAvgPriceMicros),
     fromMicros(lossesMicros),
     day,
     botId,

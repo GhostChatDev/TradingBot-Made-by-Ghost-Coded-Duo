@@ -127,6 +127,9 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
     }
     const maxTradeUsd = clampLimit(req.body?.maxTradeUsd, 5, HARD_MAX_TRADE_USD);
     const maxDailyLossUsd = clampLimit(req.body?.maxDailyLossUsd, 10, HARD_MAX_DAILY_LOSS_USD);
+    // A saved limit is bounded by the hard cap even when it is written into the
+    // database by something other than this route (an old row, a migration, a
+    // bug): checkRisk then treats an unreadable cap as blocking, never as "no cap".
     db.prepare('UPDATE users SET max_trade_usd = ?, max_daily_loss_usd = ? WHERE id = ?').run(maxTradeUsd, maxDailyLossUsd, user.id);
     logEvent(db, user.id, 'limits', `Limits set to $${maxTradeUsd.toFixed(2)} per trade, $${maxDailyLossUsd.toFixed(2)} per day`);
     res.json({ ok: true, maxTradeUsd, maxDailyLossUsd });
