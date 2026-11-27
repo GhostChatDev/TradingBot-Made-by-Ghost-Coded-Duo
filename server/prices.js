@@ -2,13 +2,11 @@
 // PAPER mode works offline using clearly labelled simulated prices.
 // Nothing here is a live market oracle.
 
+/** @type {Record<string, number>} */
 const SIMULATED_BASE = { 'SOL/USD': 150, 'BONK/USD': 0.0000245 };
 const SIMULATED_STEP_PCT = 0.006;
 
-/**
- * @param {string} market
- * @returns {string} the market's base price
- */
+/** @returns {string[]} the markets this build knows */
 export function markets() {
   return Object.keys(SIMULATED_BASE);
 }

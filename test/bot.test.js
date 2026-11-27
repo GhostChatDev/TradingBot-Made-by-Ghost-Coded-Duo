@@ -3,16 +3,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestServer, signedInUser, authedPost, authedGet } from './helpers.js';
 import { tick, recordTrade } from '../server/bot.js';
+import { Db } from '../server/db.js';
 
-/** @param {import('better-sqlite3').Database} db @param {string} userId @param {number} notional */
+// Seed 6 is a real crossover (SMA2 crosses above SMA3 on simulated prices), so a
+// trade is actually proposed and the risk gate is what the test exercises.
+const CROSSOVER_SEED = 6;
+/**
+ * @param {Db} db
+ * @param {string} userId
+ * @param {number} notional
+ */
 const tickWith = (db, userId, notional) =>
-  tick(db, { userId, market: 'SOL/USD', strategy: 'sma_crossover', params: { fast: 2, slow: 3 }, mode: 'paper', seed: 1, maxTradeUsd: notional });
+  tick(db, { userId, market: 'SOL/USD', strategy: 'sma_crossover', params: { fast: 2, slow: 3 }, mode: 'paper', seed: CROSSOVER_SEED, maxTradeUsd: notional });
 
 test('per-trade cap stops a trade that is too big', async (t) => {
   const srv = await startTestServer();
   t.after(() => srv.close());
   const user = await signedInUser(srv.base);
-  const row = srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet);
+  const row = /** @type {{id: unknown}} */ (srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet));
   const userId = String(row.id);
   srv.db.prepare('UPDATE users SET max_trade_usd = 0.5 WHERE id = ?').run(userId);
 
@@ -26,7 +34,7 @@ test('daily loss cap halts trading for the day', async (t) => {
   const srv = await startTestServer();
   t.after(() => srv.close());
   const user = await signedInUser(srv.base);
-  const userId = String(srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet).id);
+  const userId = String(/** @type {{id: unknown}} */ (srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet)).id);
   srv.db.prepare('UPDATE users SET max_daily_loss_usd = 2, max_trade_usd = 25 WHERE id = ?').run(userId);
   const today = new Date().toISOString().slice(0, 10);
   srv.db
@@ -65,7 +73,7 @@ test('paper mode never builds a transaction and never signs', async (t) => {
   const srv = await startTestServer();
   t.after(() => srv.close());
   const user = await signedInUser(srv.base);
-  const userId = String(srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet).id);
+  const userId = String(/** @type {{id: unknown}} */ (srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet)).id);
 
   // Force many seeds so at least one tick produces a paper fill.
   let fills = 0;
@@ -92,7 +100,7 @@ test('recordTrade ignores a stray signature in paper mode', async (t) => {
   const srv = await startTestServer();
   t.after(() => srv.close());
   const user = await signedInUser(srv.base);
-  const userId = String(srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet).id);
+  const userId = String(/** @type {{id: unknown}} */ (srv.db.prepare('SELECT id FROM users WHERE wallet = ?').get(user.wallet)).id);
   recordTrade(srv.db, {
     userId,
     mode: 'paper',
@@ -106,7 +114,7 @@ test('recordTrade ignores a stray signature in paper mode', async (t) => {
     status: 'paper_filled',
     signature: 'should-be-ignored',
   });
-  const row = srv.db.prepare("SELECT signature FROM trades WHERE reason = 'test'").get();
+  const row = /** @type {{signature: unknown}} */ (srv.db.prepare("SELECT signature FROM trades WHERE reason = 'test'").get());
   assert.equal(row.signature, null);
 });
 

@@ -1,8 +1,9 @@
 // server/credits.js - a prepaid integer-credit ledger. Never crypto held for anyone.
 import crypto from 'node:crypto';
+import { Db } from './db.js';
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  */
 export function ensureAccount(db, userId) {
@@ -10,7 +11,7 @@ export function ensureAccount(db, userId) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  */
 export function getBalance(db, userId) {
@@ -22,7 +23,7 @@ export function getBalance(db, userId) {
  * Take exactly `cost` credits, or nothing at all. The balance can never go negative
  * because the UPDATE is conditional: a second racing call sees the reduced balance
  * and is refused instead of pushing the number below zero.
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {number} cost
  * @param {string} reason
@@ -53,7 +54,7 @@ export function spend(db, userId, cost, reason, ref = null) {
 
 /**
  * TEST MODE ONLY: fake money, no payment provider is contacted.
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {number} amount
  * @param {string} ref
@@ -78,7 +79,7 @@ export function grantTestCredits(db, userId, amount, ref) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {number} limit
  */

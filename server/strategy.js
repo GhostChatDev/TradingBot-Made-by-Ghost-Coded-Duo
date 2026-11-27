@@ -41,7 +41,7 @@ export function crossoverSignal(prices, params) {
   if (nowFast === null || nowSlow === null || prevFast === null || prevSlow === null) {
     return { signal: 'hold', fast: null, slow: null, reason: 'not enough price history' };
   }
-  const f = (n) => n.toFixed(4);
+  const f = (/** @type {number} */ n) => n.toFixed(4);
   if (prevFast <= prevSlow && nowFast > nowSlow) {
     return {
       signal: 'buy',

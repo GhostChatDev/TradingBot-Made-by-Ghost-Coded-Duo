@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import nacl from 'tweetnacl';
 import { loadConfig, clampLimit, DISCLAIMER, HARD_MAX_TRADE_USD, HARD_MAX_DAILY_LOSS_USD } from './config.js';
-import { openDb, rowToUser } from './db.js';
+import {openDb, rowToUser, Db} from './db.js';
 import { createKey, listKeys, revokeKey, authenticate, checkRateLimit } from './keys.js';
 import { getBalance, ledger, spend, grantTestCredits, ensureAccount } from './credits.js';
 import { evaluate, tick, checkRisk, recentEvents, recentTrades, logEvent } from './bot.js';
@@ -19,7 +19,7 @@ const PUBLIC_DIR = path.join(here, '..', 'public');
 /**
  * Build the app. Tests import this with their own in-memory database.
  * @param {ReturnType<typeof loadConfig>} [config]
- * @param {import('better-sqlite3').Database} [existingDb]
+ * @param {Db} [existingDb]
  */
 export function createApp(config = loadConfig(), existingDb = undefined) {
   const db = existingDb ?? openDb(config.databasePath);
@@ -355,7 +355,7 @@ function bearer(req) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  */
 export function botState(db, userId) {

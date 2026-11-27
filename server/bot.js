@@ -3,12 +3,13 @@
 import crypto from 'node:crypto';
 import { HARD_MAX_DAILY_LOSS_USD, HARD_MAX_TRADE_USD } from './config.js';
 import { crossoverSignal } from './strategy.js';
+import { Db } from './db.js';
 import { history, paperFee } from './prices.js';
 
 export const STRATEGIES = ['sma_crossover'];
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {object} input
  * @param {string} input.userId
  * @param {string} input.market
@@ -39,7 +40,7 @@ export function evaluate(db, input) {
 
 /**
  * Risk gate. Returns { allowed, blockedBy, message }.
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {number} notionalUsd
  * @param {string} today
@@ -82,9 +83,25 @@ export function checkRisk(db, userId, notionalUsd, today) {
 }
 
 /**
+ * @typedef {object} TradeRecord
+ * @property {string} userId
+ * @property {string} [botId]
+ * @property {'paper'|'devnet'} mode
+ * @property {string} market
+ * @property {string} side
+ * @property {number} qty
+ * @property {number} priceUsd
+ * @property {number} notionalUsd
+ * @property {number} feeUsd
+ * @property {string} reason
+ * @property {string} status
+ * @property {string|null} [signature]
+ */
+
+/**
  * Record a trade. Paper trades never carry a transaction or a signature.
- * @param {import('better-sqlite3').Database} db
- * @param {object} t
+ * @param {Db} db
+ * @param {TradeRecord} t
  */
 export function recordTrade(db, t) {
   const id = crypto.randomUUID();
@@ -110,7 +127,7 @@ export function recordTrade(db, t) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {string} kind
  * @param {string} message
@@ -127,12 +144,24 @@ export function logEvent(db, userId, kind, message, botId = null) {
 }
 
 /**
+ * @typedef {object} TickInput
+ * @property {string} userId
+ * @property {string} market
+ * @property {string} strategy
+ * @property {{fast: number, slow: number}} params
+ * @property {'paper'|'devnet'} mode
+ * @property {number} [seed]
+ * @property {string} [botId]
+ * @property {number} [maxTradeUsd]
+ */
+
+/**
  * Run one tick. Paper mode only records; devnet returns a draft for the wallet to sign.
- * @param {import('better-sqlite3').Database} db
- * @param {object} p
+ * @param {Db} db
+ * @param {TickInput} p
  */
 export function tick(db, p) {
-  const { userId, market, strategy, params, mode, seed, botId } = p;
+  const { userId, market, strategy, params, mode, seed = 0, botId } = p;
   if (mode !== 'paper' && mode !== 'devnet') {
     throw new Error('only paper and devnet are available in this build');
   }
@@ -181,7 +210,7 @@ export function tick(db, p) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {number} limit
  */
@@ -193,7 +222,7 @@ export function recentEvents(db, userId, limit = 60) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {number} limit
  */

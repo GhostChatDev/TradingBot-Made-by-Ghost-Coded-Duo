@@ -15,7 +15,11 @@ const MIGRATIONS_DIR = path.join(here, 'migrations');
  * Small wrapper so call sites read like better-sqlite3: prepare().get/run/all
  * pluss a transaction() helper.
  */
-class Db {
+/**
+ * Thin wrapper over node:sqlite with the four calls the app uses.
+ * Exported as a type so the rest of the code can point at it.
+ */
+export class Db {
   /**
    * @param {string} databasePath
    */

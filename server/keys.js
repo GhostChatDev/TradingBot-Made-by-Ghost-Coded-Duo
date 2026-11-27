@@ -1,6 +1,7 @@
 // server/keys.js - API keys are stored only as a salted SHA-256 hash.
 // The plaintext key is returned once, at creation, and never stored or logged.
 import crypto from 'node:crypto';
+import { Db } from './db.js';
 
 const KEY_PREFIX = 'sb_sk_';
 
@@ -18,7 +19,7 @@ export function hashKey(key, pepper) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {string} label
  * @param {string} pepper
@@ -34,7 +35,7 @@ export function createKey(db, userId, label, pepper) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  */
 export function listKeys(db, userId) {
@@ -55,7 +56,7 @@ export function listKeys(db, userId) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} userId
  * @param {string} id
  */
@@ -68,7 +69,7 @@ export function revokeKey(db, userId, id) {
 
 /**
  * Look up a presented Bearer token. Returns null for unknown, malformed or revoked keys.
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string|undefined} token
  * @param {string} pepper
  */
@@ -83,7 +84,7 @@ export function authenticate(db, token, pepper) {
 
 /**
  * Sliding one-minute window counter kept in api_calls (no extra table needed).
- * @param {import('better-sqlite3').Database} db
+ * @param {Db} db
  * @param {string} keyId
  * @param {number} perMinute
  * @param {number} now
