@@ -19,8 +19,8 @@ export const REFUSAL_REASON =
  */
 export function mainnetLiveEnabled(env = process.env) {
   const reads = (/** @type {string} */ name) => String(env[name] ?? '').trim().toLowerCase() === 'true';
-  // Either documented name switches it on; anything other than the exact string
-  // "true" counts as off, and unset means off.
+  // ONE name switches it on; anything other than the exact string "true" counts as
+  // off, and unset means off.
   return reads(MAINNET_FLAG);
 }
 
@@ -46,7 +46,7 @@ const defaultLogger = {
  */
 export function assertMayTouchMainnet(action, env = process.env, logger = defaultLogger) {
   if (mainnetLiveEnabled(env)) {
-    logger.log(`${action}: allowed (${MAINNET_LIVE_FLAG}=true)`);
+    logger.log(`${action}: allowed (${MAINNET_FLAG}=true)`);
     return true;
   }
   logger.log(`${action}: BLOCKED - ${REFUSAL_REASON}`);

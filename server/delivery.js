@@ -49,12 +49,16 @@ export function setDelivery(db, userId, delivery) {
  * @returns {number} rows cleared
  */
 export function sweepDrafts(db, hours = 24) {
+  // Compare like with like: draft_at is written as an ISO string ('2025-01-01T12:00:00.000Z'),
+  // which sorts after SQLite's datetime('now') ('2025-01-01 12:00:00') because 'T' > ' '.
+  // Build the cutoff in the same ISO format in JS instead.
+  const cutoff = new Date(Date.now() - Math.max(1, Math.round(hours)) * 3600_000).toISOString();
   const info = db
     .prepare(
       `UPDATE trades SET draft_tx = NULL, draft_at = NULL
        WHERE draft_tx IS NOT NULL AND draft_at IS NOT NULL
-         AND draft_at < datetime('now', ?)`,
+         AND draft_at < ?`,
     )
-    .run(`-${Math.max(1, Math.round(hours))} hours`);
+    .run(cutoff);
   return Number(info.changes ?? 0);
 }

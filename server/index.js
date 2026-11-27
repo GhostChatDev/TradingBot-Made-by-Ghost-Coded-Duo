@@ -9,10 +9,11 @@ import {openDb, rowToUser, Db} from './db.js';
 import { createKey, listKeys, revokeKey, authenticate, checkRateLimit } from './keys.js';
 import { getBalance, ledger, spend, grantTestCredits, ensureAccount } from './credits.js';
 import { evaluate, tick, checkRisk, recentEvents, recentTrades, logEvent } from './bot.js';
+
 import { markets, history } from './prices.js';
 import { findKeyMaterial, redact, CUSTODY_STATEMENT } from './custody.js';
 import { mark as markPump, summary as pumpSummary } from './pump-run.js';
-import { getDelivery, setDelivery } from './delivery.js';
+import { getDelivery, setDelivery, sweepDrafts } from './delivery.js';
 import { base58Decode } from './base58.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -441,6 +442,10 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
 
   // A tiny middleware-free way to expose the db for tests.
   Object.defineProperty(app, 'locals_db', { value: db, enumerable: false });
+  Object.defineProperty(app, 'locals_sweep', {
+    value: (/** @type {number} */ hours = 24) => sweepDrafts(db, hours),
+    enumerable: false,
+  });
   return app;
 }
 
@@ -471,6 +476,17 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve
 if (isMain) {
   const config = loadConfig();
   const app = createApp(config);
+  // Draft retention: sweep now, then once an hour while the server runs.
+  const sweepHours = 24;
+  const sweepTimer = setInterval(() => {
+    try {
+      const cleared = sweepDrafts(/** @type {any} */ (app).locals_db, sweepHours);
+      if (cleared > 0) console.log(`draft sweep: cleared ${cleared} unsigned draft(s) older than ${sweepHours}h`);
+    } catch (err) {
+      console.error('draft sweep failed:', err instanceof Error ? err.message : err);
+    }
+  }, 3600_000);
+  sweepTimer.unref();
   app.listen(config.port, () => {
     console.log(`Solana bot demo on http://localhost:${config.port}`);
     console.log(`mode=${config.mode} mainnetEnabled=${config.mainnetEnabled} payments=${config.payments}`);

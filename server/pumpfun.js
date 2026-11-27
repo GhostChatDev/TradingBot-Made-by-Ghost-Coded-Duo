@@ -18,7 +18,13 @@ export const TAKE_PROFIT_CENTS = 1000;
 /** Stop loss as a fraction of the amount put in. */
 export const STOP_LOSS_PCT = 20;
 
-/** The balance at which the run stops. */
+/** The stake the run starts with: 5.00 USD. */
+export const START_BANKROLL_CENTS = 500;
+
+/** The smallest position worth opening; below it the run stops. */
+export const MIN_POSITION_CENTS = 100;
+
+/** The bankroll at which the run stops. */
 export const GOAL_CENTS = 500000;
 
 /** A small default watchlist. The person can edit it; ids are pump.fun mints. */
