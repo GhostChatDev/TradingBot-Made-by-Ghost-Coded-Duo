@@ -27,7 +27,7 @@ npm run typecheck         # tsc --noEmit
 
 | Mode | Where | Money | How to get there |
 |---|---|---|---|
-| **Paper** (default) | `public/` UI | Fake balance, real prices from the live feed; simulated fallback when the feed is unreachable, clearly labelled `priceSource` | Nothing to set up — it is the default |
+| **Paper** (default) | `public/` UI | Fake balance. The price feed in this build is the clearly labelled **simulated** feed (`priceSource: "simulated"`), so paper mode works offline; a live feed drops in at `server/prices.js#history` | Nothing to set up — it is the default |
 | **Devnet** | Same UI, mode switch | Free test SOL, no real value | Switch the mode; your wallet signs each devnet transaction |
 | **Mainnet (real funds)** | — | Real money | **Off.** Two things must both change: `MAINNET_ENABLED=true` in the server environment *and* the in-app switch. Ships off; the server refuses a mainnet request while it is off |
 | **Payments** | Credits page | Fake money | **Off.** `PAYMENTS_MODE=test` gives test top-ups only. Real payments stay off until you switch them on after legal review |
