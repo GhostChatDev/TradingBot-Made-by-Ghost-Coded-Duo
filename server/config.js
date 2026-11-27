@@ -21,6 +21,11 @@ export const RATE_LIMIT_PER_MINUTE = 60;
 /**
  * @param {NodeJS.ProcessEnv} env
  */
+/** @typedef {NodeJS.ProcessEnv | Record<string, string | undefined>} Env */
+
+/**
+ * @param {Env} [env]
+ */
 export function loadConfig(env = process.env) {
   // `node --test` runs each test file in its own process, which sets NODE_TEST_CONTEXT.
   const isTest = env.NODE_ENV === 'test' || env.NODE_TEST_CONTEXT !== undefined;
@@ -41,7 +46,8 @@ export function loadConfig(env = process.env) {
     mainnetEnabled,
     /** 'test' = fake money top-ups. 'off' = no payments at all. */
     payments: payments === 'off' ? 'off' : 'test',
-    keyPepper: readPepper(env, isTest),
+    /** The pepper for API key hashes, or null when none is configured (keys disabled). */
+    keyPepper: readPepper(env, isTest, { fatal: false }),
     creditsPerSignal: CREDITS_PER_SIGNAL,
     rateLimitPerMinute: RATE_LIMIT_PER_MINUTE,
     maxTradeUsd: DEFAULT_MAX_TRADE_USD,
@@ -54,14 +60,17 @@ export function loadConfig(env = process.env) {
  * environment: a public, hard-coded pepper in the repository would let anyone
  * holding the database test guessed keys against it. Tests get a fixed value so
  * they can run without one; a real server refuses to start without it.
- * @param {NodeJS.ProcessEnv} env
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env
  * @param {boolean} isTest
- * @returns {string}
+ * @param {{fatal?: boolean}} [opts] fatal:false returns null instead of throwing, so the
+ *   server can still boot and show its screens (API key endpoints then refuse).
+ * @returns {string | null}
  */
-export function readPepper(env, isTest) {
+export function readPepper(env, isTest, opts = {}) {
   const pepper = String(env.API_KEY_PEPPER ?? '').trim();
   if (pepper.length >= 16) return pepper;
   if (isTest) return 'test-only-pepper';
+  if (opts.fatal === false) return null;
   throw new Error(
     'API_KEY_PEPPER is missing or shorter than 16 characters. Generate one (for example `openssl rand -hex 32`) ' +
       'and set it in the server environment before starting. API keys are not usable without it.',
@@ -78,6 +87,15 @@ export function clampLimit(value, fallback, hardMax) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.min(n, hardMax);
+}
+
+/**
+ * The pepper for API key hashes, or null when this server was started without one.
+ * @param {{keyPepper?: string | null}} config
+ * @returns {string | null}
+ */
+export function pepperFor(config) {
+  return config.keyPepper ?? null;
 }
 
 /** The sentence every trading screen must show. */

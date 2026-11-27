@@ -75,12 +75,15 @@ test('a mainnet tick with the flag unset throws and writes nothing', async (t) =
 // FINDING 2: the pepper used to fall back to a string that is published in this
 // repository, so a guessed key could be tested against a stolen database.
 test('a real server refuses to start without API_KEY_PEPPER', () => {
+  // The server still starts without a pepper (so its screens work); the pepper is
+  // read when a key is made or checked, and that call refuses.
+  assert.doesNotThrow(() => loadConfig({ TRADING_MODE: 'paper' }), 'the app boots without a pepper');
   assert.throws(
-    () => loadConfig({ TRADING_MODE: 'paper' }),
+    () => readPepper({ TRADING_MODE: 'paper' }, false),
     /API_KEY_PEPPER is missing or shorter than 16 characters/,
   );
   assert.throws(
-    () => loadConfig({ TRADING_MODE: 'paper', API_KEY_PEPPER: 'short' }),
+    () => readPepper({ API_KEY_PEPPER: 'short' }, false),
     /API_KEY_PEPPER/,
     'a too-short pepper is refused too',
   );
@@ -90,6 +93,7 @@ test('a real server refuses to start without API_KEY_PEPPER', () => {
 
 test('a configured pepper is used as given, and tests still run without one', () => {
   const pepper = 'a'.repeat(32);
-  assert.equal(loadConfig({ NODE_ENV: 'test', API_KEY_PEPPER: pepper }).keyPepper, pepper);
-  assert.ok(loadConfig({ NODE_ENV: 'test' }).keyPepper.length >= 8, 'a test gets a working pepper');
+  assert.equal(readPepper({ API_KEY_PEPPER: pepper }, false), pepper);
+  assert.ok(String(readPepper({}, true)).length >= 8, 'a test gets a working pepper');
+  assert.equal(readPepper({}, false, { fatal: false }), null, 'a server without one gets null, not a guess');
 });
