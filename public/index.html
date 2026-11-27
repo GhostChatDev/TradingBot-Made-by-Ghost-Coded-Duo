@@ -61,10 +61,11 @@
 <nav id="tabs" role="tablist">
   <button role="tab" data-tab="connect" aria-selected="true">1. Connect wallet</button>
   <button role="tab" data-tab="strategy" aria-selected="false">2. Strategy &amp; mode</button>
-  <button role="tab" data-tab="bot" aria-selected="false">3. Bot, log &amp; STOP</button>
-  <button role="tab" data-tab="keys" aria-selected="false">4. API keys</button>
-  <button role="tab" data-tab="credits" aria-selected="false">5. Credits &amp; usage</button>
-  <button role="tab" data-tab="risks" aria-selected="false">6. How it works &amp; what can go wrong</button>
+  <button role="tab" data-tab="pump" aria-selected="false">3. Pump.fun paper run</button>
+  <button role="tab" data-tab="bot" aria-selected="false">4. Bot, log &amp; STOP</button>
+  <button role="tab" data-tab="keys" aria-selected="false">5. API keys</button>
+  <button role="tab" data-tab="credits" aria-selected="false">6. Credits &amp; usage</button>
+  <button role="tab" data-tab="risks" aria-selected="false">7. How it works &amp; what can go wrong</button>
 </nav>
 <main>
   <div class="disclaimer" id="disclaimer">General information and software, not financial advice. You can lose everything you put in.</div>
@@ -119,6 +120,29 @@
         <button class="primary" id="btn-limits">Save limits</button>
       </div>
       <div class="msg" id="limits-msg"></div>
+    </div>
+  </section>
+
+  <section id="tab-pump" hidden>
+    <div class="card">
+      <h2>Pump.fun rule set — paper only, prices simulated</h2>
+      <p class="hint" id="pump-rules">Loading rules…</p>
+      <div class="grid" style="margin-top:12px">
+        <div class="stat"><div class="hint">Position size</div><div class="big" id="pump-size">—</div></div>
+        <div class="stat"><div class="hint">Realised (paper)</div><div class="big" id="pump-realised">—</div></div>
+        <div class="stat"><div class="hint">Open position</div><div class="big" id="pump-open">—</div></div>
+        <div class="stat"><div class="hint">Unrealised (paper)</div><div class="big" id="pump-unrealised">—</div></div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="primary" id="btn-pump-step">Run one paper mark</button>
+        <button class="ghost" id="btn-pump-auto">Run 10 marks</button>
+      </div>
+      <p class="hint" id="pump-msg" style="margin-top:8px">Sign in to run the paper rule set.</p>
+      <p class="hint">Every number above is simulated by this app. It is not live pump.fun data and it is not a result you could expect from real money.</p>
+    </div>
+    <div class="card">
+      <h2>Closed paper positions</h2>
+      <div class="wrap-x"><table><thead><tr><th>Time</th><th>Token</th><th>Why</th><th class="num">Result</th></tr></thead><tbody id="pump-closed"><tr><td colspan="4" class="hint">Nothing closed yet.</td></tr></tbody></table></div>
     </div>
   </section>
 
@@ -461,9 +485,47 @@
       : 'Devnet: free test SOL. This build queues a draft; it never sends a mainnet transaction. Mainnet needs the owner\u2019s switch.';
   });
 
+  async function refreshPump() {
+    if (!token) { $('pump-msg').textContent = 'Sign in to run the paper rule set.'; return; }
+    const r = await api('/api/pump');
+    if (!r.ok) return;
+    const d = r.data;
+    const ru = d.rules || {};
+    $('pump-rules').textContent = 'Take profit at +$' + ru.takeProfitUsd + ', stop loss at ' + ru.stopLossPct +
+      '%, compound wins, stop the run at $' + ru.goalUsd + ' realised. Size is capped by your per-trade limit.';
+    $('pump-size').textContent = money(d.sizeCents);
+    $('pump-realised').textContent = money(d.realisedCents);
+    $('pump-open').textContent = d.open ? (d.open.symbol || d.open.mint) + ' · ' + money(d.open.entryCents) : 'none';
+    $('pump-unrealised').textContent = d.open ? money(d.open.unrealisedCents) : '—';
+    const cl = d.closed || [];
+    $('pump-closed').innerHTML = cl.length
+      ? cl.map((c) => '<tr><td>' + escapeHtml(String(c.at)) + '</td><td>' + escapeHtml(String(c.symbol)) + '</td><td>' +
+        escapeHtml(c.action === 'take_profit' ? 'take profit' : 'stop loss') + '</td><td class="num">' + money(c.pnlCents) + '</td></tr>').join('')
+      : '<tr><td colspan="4" class="hint">Nothing closed yet.</td></tr>';
+    if (d.goalReached) $('pump-msg').textContent = 'The paper run reached its goal and stopped. Simulated only.';
+  }
+
+  async function pumpStep(times) {
+    if (!token) { $('pump-msg').textContent = 'Sign in first.'; return; }
+    for (let i = 0; i < times; i += 1) {
+      const r = await api('/api/pump/step', { method: 'POST', body: JSON.stringify({ mode: 'paper' }) });
+      if (!r.ok) { $('pump-msg').textContent = r.data.message || 'The paper step failed.'; return; }
+    }
+    $('pump-msg').textContent = 'Ran ' + times + ' paper mark(s). Simulated prices.';
+    await refreshPump();
+    await refreshBot();
+  }
+
+  $('tabs').addEventListener('click', (e) => {
+    const b = /** @type {HTMLElement} */ (e.target).closest('[data-tab]');
+    if (b && b.dataset.tab === 'pump') refreshPump();
+  });
+  $('btn-pump-step').addEventListener('click', () => pumpStep(1));
+  $('btn-pump-auto').addEventListener('click', () => pumpStep(10));
+
   renderSession();
   loadMeta();
-  if (token) { refreshBot(); refreshCredits(); refreshKeys(); }
+  if (token) { refreshBot(); refreshCredits(); refreshKeys(); refreshPump(); }
 })();
 </script>
 </body>
