@@ -94,9 +94,11 @@ export function checkRisk(db, userId, notionalUsd, today) {
  * @property {string} status
  * @property {string|null} [signature]
  * @property {number} [avgCostUsd]
+ * @property {string} [at] ISO time of the fill; defaults to now
  */
 
-/** The bot row this account's risk numbers live on, created if missing. */
+/** The bot row this account's risk numbers live on, created if missing.
+ * @param {any} db @param {string} userId */
 function ensureBotRow(db, userId) {
   const existing = db.prepare('SELECT id FROM bots WHERE user_id = ? ORDER BY created_at LIMIT 1').get(userId);
   if (existing) return String(existing.id);

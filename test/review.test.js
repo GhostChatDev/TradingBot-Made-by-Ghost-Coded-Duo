@@ -37,7 +37,7 @@ test('daily loss cap is reached from real filled trades, with no hand-written lo
     priceUsd: 140, notionalUsd: 1, feeUsd: 0.001, reason: 'test', status: 'paper_filled',
   });
 
-  const row = srv.db.prepare('SELECT losses_usd, loss_day FROM bots WHERE user_id = ?').get(userId);
+  const row = /** @type {any} */ (srv.db.prepare('SELECT losses_usd, loss_day FROM bots WHERE user_id = ?').get(userId));
   assert.ok(row, 'a bot row exists without the test creating one');
   assert.equal(String(row.loss_day), today());
   assert.ok(Number(row.losses_usd) > 0, 'the realised loss was recorded by the trade code');
@@ -61,7 +61,7 @@ test('a gain does not add to the daily loss and yesterday\'s loss does not block
     userId, mode: 'paper', market: 'SOL/USD', side: 'sell', qty: 0.01,
     priceUsd: 150, notionalUsd: 1.5, feeUsd: 0, reason: 'test', status: 'paper_filled',
   });
-  const row = srv.db.prepare('SELECT losses_usd FROM bots WHERE user_id = ?').get(userId);
+  const row = /** @type {any} */ (srv.db.prepare('SELECT losses_usd FROM bots WHERE user_id = ?').get(userId));
   assert.equal(Number(row.losses_usd), 0, 'a gain is not a loss');
 });
 
@@ -89,12 +89,12 @@ test('devnet stores a signable draft, and a signed one becomes an approved trade
     draftId: body.trade.draftId, signature: '5' + 'J'.repeat(63),
   });
   assert.equal(confirm.status, 200);
-  const after = await srv.db.prepare('SELECT status, signature FROM trades WHERE id = ?').get(body.trade.draftId);
+  const after = /** @type {any} */ (await srv.db.prepare('SELECT status, signature FROM trades WHERE id = ?').get(body.trade.draftId));
   assert.equal(String(after.status), 'devnet_submitted');
   assert.equal(String(after.signature), '5' + 'J'.repeat(63));
 
   const events = await (await authedGet(srv.base, user.token, '/api/bot/state')).json();
-  assert.ok(events.events.some((e) => e.kind === 'devnet_submitted'), 'the approval is in the log');
+  assert.ok(events.events.some((/** @type {any} */ e) => e.kind === 'devnet_submitted'), 'the approval is in the log');
 });
 
 test('a draft cannot be confirmed twice, by someone else, or with a fake signature', async (t) => {

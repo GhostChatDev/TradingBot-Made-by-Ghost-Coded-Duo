@@ -7,6 +7,7 @@ const SIMULATED_BASE = { 'SOL/USD': 150, 'BONK/USD': 0.0000245 };
 const SIMULATED_STEP_PCT = 0.006;
 
 /** Coinbase product ids for the markets this build trades. */
+/** @type {Record<string, string>} */
 const COINBASE_PRODUCT = { 'SOL/USD': 'SOL-USD' };
 
 /** @type {Map<string, {prices: number[], source: string, at: number}>} */
