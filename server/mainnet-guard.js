@@ -1,22 +1,15 @@
 // server/mainnet-guard.js - ONE flag decides whether this server may touch real money.
 //
-// Rule: unless MAINNET_LIVE=true is set in the server's environment, this module
+// Rule: unless MAINNET_ENABLED=true is set in the server's environment, this module
 // REFUSES to build or sign any mainnet transaction, writes down why, and throws.
-// There is no other path to a mainnet build or signature in this codebase.
+// There is no other path to a mainnet build or signature in this codebase, and no alias.
 
 /** The single environment flag that unlocks live mainnet trading. */
-export const MAINNET_LIVE_FLAG = 'MAINNET_LIVE';
-
-/**
- * The name this flag was first documented under (README, RISKS.md, .env.example).
- * It is accepted as an alias so the documented steps actually work. Both unset
- * still means off; the app ships with neither set.
- */
-export const MAINNET_ENABLED_ALIAS = 'MAINNET_ENABLED';
+export const MAINNET_FLAG = 'MAINNET_ENABLED';
 
 /** Why the guard refused. Written to the log and returned to the caller. */
 export const REFUSAL_REASON =
-  'Refused: live mainnet trading is off. Set MAINNET_LIVE=true in the server environment to allow it. ' +
+  'Refused: live mainnet trading is off. Set MAINNET_ENABLED=true in the server environment to allow it. ' +
   'This app starts with it unset, so nothing real is built or signed.';
 
 /**
@@ -28,7 +21,7 @@ export function mainnetLiveEnabled(env = process.env) {
   const reads = (/** @type {string} */ name) => String(env[name] ?? '').trim().toLowerCase() === 'true';
   // Either documented name switches it on; anything other than the exact string
   // "true" counts as off, and unset means off.
-  return reads(MAINNET_LIVE_FLAG) || reads(MAINNET_ENABLED_ALIAS);
+  return reads(MAINNET_FLAG);
 }
 
 /**

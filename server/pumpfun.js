@@ -84,17 +84,30 @@ export function decideExit(pos, priceMicros) {
  * @returns {{ nextSizeCents: number, realisedCents: number, goalReached: boolean, sizeCents: number, note: string }}
  */
 export function afterClose(p) {
+  // realisedCents is the run's cumulative profit and loss (it starts at 0 and may be
+  // negative). The bankroll is the starting stake plus that, so one stop loss shrinks
+  // the next position instead of ending the run.
   const realisedCents = Math.round(p.realisedCents + p.pnlCents);
-  const goalReached = realisedCents >= GOAL_CENTS;
+  const bankrollCents = Math.round(START_BANKROLL_CENTS + realisedCents);
+  const goalReached = bankrollCents >= GOAL_CENTS;
   const rawSize = Math.round(p.sizeCents + p.pnlCents);
-  // Never bet more than what is realised so far, and never a negative size.
-  const nextSizeCents = goalReached ? 0 : Math.max(0, Math.min(rawSize, realisedCents));
+  // Never bet more than the bankroll holds, and never a negative size.
+  const capped = Math.max(0, Math.min(rawSize, bankrollCents));
+  // Below the smallest position worth a trade, there is nothing left to run with.
+  const nextSizeCents = goalReached || capped < MIN_POSITION_CENTS ? 0 : capped;
   const note = goalReached
-    ? `goal reached: realised $${(realisedCents / 100).toFixed(2)} is at or above the $${(GOAL_CENTS / 100).toFixed(2)} target - the run stops here`
+    ? `goal reached: bankroll $${(bankrollCents / 100).toFixed(2)} is at or above the $${(GOAL_CENTS / 100).toFixed(2)} target - the run stops here`
     : nextSizeCents === 0
-      ? 'nothing left to compound: the realised balance is zero, the run stops'
-      : `compounding: next position $${(nextSizeCents / 100).toFixed(2)} from realised $${(realisedCents / 100).toFixed(2)}`;
-  return { nextSizeCents, realisedCents, goalReached, sizeCents: Math.round(p.sizeCents), note };
+      ? `bankroll $${(bankrollCents / 100).toFixed(2)} is under the $${(MIN_POSITION_CENTS / 100).toFixed(2)} smallest position - the run stops`
+      : `compounding: next position $${(nextSizeCents / 100).toFixed(2)} from a bankroll of $${(bankrollCents / 100).toFixed(2)}`;
+  return {
+    nextSizeCents,
+    realisedCents,
+    bankrollCents,
+    goalReached,
+    sizeCents: Math.round(p.sizeCents),
+    note,
+  };
 }
 
 /**
@@ -106,8 +119,13 @@ export function afterClose(p) {
  * @returns {{mint: string, symbol: string}|null}
  */
 export function nextToken(watchlist, justClosedMint, doneMints) {
-  const pool = watchlist.filter((t) => t.mint !== justClosedMint && !doneMints.has(t.mint));
-  return pool.length > 0 ? pool[0] : null;
+  const fresh = watchlist.filter((t) => t.mint !== justClosedMint && !doneMints.has(t.mint));
+  if (fresh.length > 0) return fresh[0];
+  // Every token has been used at least once: rotate through the watchlist again
+  // rather than stopping on a three-token list. Re-entry is not free money, and the
+  // note on screen says the run is rotating.
+  const rotate = watchlist.filter((t) => t.mint !== justClosedMint);
+  return rotate.length > 0 ? rotate[0] : null;
 }
 
 /**

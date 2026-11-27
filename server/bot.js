@@ -264,7 +264,7 @@ export function tick(db, p) {
   if (mode !== 'paper' && mode !== 'devnet' && mode !== 'mainnet') {
     throw new Error('only paper, devnet and mainnet are known modes');
   }
-  // The one place a mainnet transaction could ever be built. With MAINNET_LIVE
+  // The one place a mainnet transaction could ever be built. With MAINNET_ENABLED
   // unset this throws and logs why, before any price or strategy work happens.
   if (mode === 'mainnet') {
     mainnetTransaction({ mode: 'mainnet', action: 'build', transaction: 'unsigned-mainnet-draft' });

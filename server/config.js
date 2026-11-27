@@ -1,6 +1,6 @@
 // server/config.js - every safety switch lives here and is read once at boot.
 // Secrets are read ONLY from environment variables and are never logged.
-import { resolveMode, mainnetLiveEnabled } from './mainnet-guard.js';
+import { resolveMode, mainnetLiveEnabled, MAINNET_FLAG } from './mainnet-guard.js';
 
 /** @typedef {'paper'|'devnet'|'mainnet'} TradingMode */
 
@@ -25,7 +25,7 @@ export function loadConfig(env = process.env) {
   const rawMode = (env.TRADING_MODE || 'paper').toLowerCase();
   const payments = (env.PAYMENTS_MODE || 'test').toLowerCase();
 
-  // Mainnet is gated by ONE flag (MAINNET_LIVE). The guard logs the refusal.
+  // Mainnet is gated by ONE flag (MAINNET_ENABLED). The guard logs the refusal.
   const mode = resolveMode(rawMode, env);
   const mainnetEnabled = mainnetLiveEnabled(env);
 
