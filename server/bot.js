@@ -1,52 +1,220 @@
-// server/strategy.js - one simple, honest strategy: a moving-average crossover.
+// server/bot.js - the engine: price -> signal -> risk checks -> paper fill or devnet draft.
+// It NEVER holds a key. In paper mode it cannot build a transaction at all.
+import crypto from 'node:crypto';
+import { HARD_MAX_DAILY_LOSS_USD, HARD_MAX_TRADE_USD } from './config.js';
+import { crossoverSignal } from './strategy.js';
+import { history, paperFee } from './prices.js';
+
+export const STRATEGIES = ['sma_crossover'];
 
 /**
- * @param {number[]} values
- * @param {number} n
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} input
+ * @param {string} input.userId
+ * @param {string} input.market
+ * @param {string} input.strategy
+ * @param {{fast:number,slow:number}} input.params
+ * @param {'paper'|'devnet'} input.mode
+ * @param {number} input.seed
  */
-export function sma(values, n) {
-  if (n <= 0 || values.length < n) return null;
-  let sum = 0;
-  for (let i = values.length - n; i < values.length; i += 1) sum += values[i];
-  return sum / n;
+export function evaluate(db, input) {
+  const { userId, market, strategy, params, mode, seed } = input;
+  const hist = history(market, Math.max(params.slow + 1, 30), seed);
+  const sig = crossoverSignal(hist.prices, params);
+  const price = hist.last;
+  return {
+    market,
+    strategy,
+    mode,
+    price,
+    priceSource: hist.source,
+    signal: sig.signal,
+    reason: sig.reason,
+    fast: sig.fast,
+    slow: sig.slow,
+    at: new Date().toISOString(),
+    userId,
+  };
 }
 
 /**
- * @typedef {{ signal: 'buy'|'sell'|'hold', fast: number|null, slow: number|null, reason: string }} Signal
+ * Risk gate. Returns { allowed, blockedBy, message }.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} userId
+ * @param {number} notionalUsd
+ * @param {string} today
  */
+export function checkRisk(db, userId, notionalUsd, today) {
+  const user = db
+    .prepare('SELECT max_trade_usd, max_daily_loss_usd FROM users WHERE id = ?')
+    .get(userId);
+  const maxTrade = Math.min(Number(user?.max_trade_usd ?? 5), HARD_MAX_TRADE_USD);
+  const maxLoss = Math.min(Number(user?.max_daily_loss_usd ?? 10), HARD_MAX_DAILY_LOSS_USD);
+
+  const bots = db.prepare('SELECT running FROM bots WHERE user_id = ?').all(userId);
+  if (bots.some((b) => Number(b.running) === 0 && db.prepare('SELECT 1').get())) {
+    // a bot that was stopped stays stopped; handled per-bot below
+  }
+  const stopped = db
+    .prepare("SELECT stop_reason FROM bots WHERE user_id = ? AND stop_reason = 'STOP' ORDER BY updated_at DESC LIMIT 1")
+    .get(userId);
+  if (stopped) return { allowed: false, blockedBy: 'stop', message: 'STOP is pressed. Clear it before trading again.' };
+
+  const lossRow = db
+    .prepare('SELECT losses_usd, loss_day FROM bots WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1')
+    .get(userId);
+  const losses = lossRow && String(lossRow.loss_day) === today ? Number(lossRow.losses_usd) : 0;
+  if (losses >= maxLoss) {
+    return {
+      allowed: false,
+      blockedBy: 'daily_loss_cap',
+      message: `Daily loss cap reached ($${losses.toFixed(2)} of $${maxLoss.toFixed(2)}). Trading is halted until tomorrow.`,
+    };
+  }
+  if (notionalUsd > maxTrade) {
+    return {
+      allowed: false,
+      blockedBy: 'per_trade_cap',
+      message: `Trade of $${notionalUsd.toFixed(2)} is above your per-trade cap of $${maxTrade.toFixed(2)}.`,
+    };
+  }
+  return { allowed: true, blockedBy: null, message: 'inside your limits' };
+}
 
 /**
- * Compare the fast and slow average now with where they were one tick ago.
- * @param {number[]} prices oldest first, newest last
- * @param {{fast: number, slow: number}} params
- * @returns {Signal}
+ * Record a trade. Paper trades never carry a transaction or a signature.
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} t
  */
-export function crossoverSignal(prices, params) {
-  const { fast, slow } = params;
-  if (!Number.isInteger(fast) || !Number.isInteger(slow) || fast < 2 || slow <= fast) {
-    return { signal: 'hold', fast: null, slow: null, reason: 'invalid parameters: slow must be a whole number greater than fast (fast >= 2)' };
+export function recordTrade(db, t) {
+  const id = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO trades (id, user_id, bot_id, mode, market, side, qty, price_usd, notional_usd, fee_usd, reason, status, signature)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    t.userId,
+    t.botId ?? null,
+    t.mode,
+    t.market,
+    t.side,
+    t.qty,
+    t.priceUsd,
+    t.notionalUsd,
+    t.feeUsd,
+    t.reason,
+    t.status,
+    t.mode === 'paper' ? null : (t.signature ?? null),
+  );
+  return id;
+}
+
+/**
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} userId
+ * @param {string} kind
+ * @param {string} message
+ * @param {string|null} botId
+ */
+export function logEvent(db, userId, kind, message, botId = null) {
+  db.prepare('INSERT INTO bot_events (id, user_id, bot_id, kind, message) VALUES (?, ?, ?, ?, ?)').run(
+    crypto.randomUUID(),
+    userId,
+    botId,
+    kind,
+    message.slice(0, 500),
+  );
+}
+
+/**
+ * Run one tick. Paper mode only records; devnet returns a draft for the wallet to sign.
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} p
+ */
+export function tick(db, p) {
+  const { userId, market, strategy, params, mode, seed, botId } = p;
+  if (mode !== 'paper' && mode !== 'devnet') {
+    throw new Error('only paper and devnet are available in this build');
   }
-  if (prices.length < slow + 1) {
-    return { signal: 'hold', fast: null, slow: null, reason: `waiting for ${slow + 1} price points` };
+  const decision = evaluate(db, { userId, market, strategy, params, mode, seed });
+  logEvent(db, userId, 'decision', `${decision.signal.toUpperCase()} - ${decision.reason}`, botId ?? null);
+
+  if (decision.signal === 'hold') {
+    return { decision, trade: null, blocked: null };
   }
-  const nowFast = sma(prices, fast);
-  const nowSlow = sma(prices, slow);
-  const prevFast = sma(prices.slice(0, -1), fast);
-  const prevSlow = sma(prices.slice(0, -1), slow);
-  if (nowFast === null || nowSlow === null || prevFast === null || prevSlow === null) {
-    return { signal: 'hold', fast: null, slow: null, reason: 'not enough price history' };
+
+  // Paper: a fixed small notional, so paper results are honest and repeatable.
+  const notionalUsd = Math.min(1, p.maxTradeUsd ?? 1);
+  const risk = checkRisk(db, userId, notionalUsd, new Date().toISOString().slice(0, 10));
+  if (!risk.allowed) {
+    logEvent(db, userId, 'blocked', risk.message, botId ?? null);
+    return { decision, trade: null, blocked: risk };
   }
-  const f = (n) => n.toFixed(4);
-  if (prevFast <= prevSlow && nowFast > nowSlow) {
-    return { signal: 'buy', fast: nowFast, slow: nowSlow, reason: `SMA${fast} ${f(nowFast)} crossed above SMA${slow} ${f(nowSlow)}` };
+
+  if (mode === 'paper') {
+    const feeUsd = paperFee(notionalUsd);
+    const id = recordTrade(db, {
+      userId,
+      botId,
+      mode: 'paper',
+      market,
+      side: decision.signal,
+      qty: Number((notionalUsd / decision.price).toFixed(8)),
+      priceUsd: decision.price,
+      notionalUsd,
+      feeUsd,
+      reason: decision.reason,
+      status: 'paper_filled',
+    });
+    logEvent(db, userId, 'paper_fill', `PAPER ${decision.signal.toUpperCase()} $${notionalUsd.toFixed(2)} at $${decision.price}`, botId ?? null);
+    return { decision, trade: { id, status: 'paper_filled', signature: null }, blocked: null };
   }
-  if (prevFast >= prevSlow && nowFast < nowSlow) {
-    return { signal: 'sell', fast: nowFast, slow: nowSlow, reason: `SMA${fast} ${f(nowFast)} crossed below SMA${slow} ${f(nowSlow)}` };
-  }
+
+  // Devnet: no transaction is built here on purpose. The browser builds it with
+  // the user's own wallet and the server only ever sees a signature to relay.
+  logEvent(db, userId, 'draft', 'Devnet draft queued for your wallet to approve', botId ?? null);
   return {
-    signal: 'hold',
-    fast: nowFast,
-    slow: nowSlow,
-    reason: `no crossover: SMA${fast} ${f(nowFast)} vs SMA${slow} ${f(nowSlow)}`,
+    decision,
+    trade: { status: 'awaiting_wallet_signature', signature: null },
+    blocked: null,
   };
+}
+
+/**
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} userId
+ * @param {number} limit
+ */
+export function recentEvents(db, userId, limit = 60) {
+  const rows = db
+    .prepare('SELECT id, kind, message, created_at FROM bot_events WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?')
+    .all(userId, limit);
+  return rows.map((r) => ({ id: String(r.id), kind: String(r.kind), message: String(r.message), at: String(r.created_at) }));
+}
+
+/**
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} userId
+ * @param {number} limit
+ */
+export function recentTrades(db, userId, limit = 40) {
+  const rows = db
+    .prepare(
+      'SELECT id, mode, market, side, qty, price_usd, notional_usd, fee_usd, reason, status, signature, created_at FROM trades WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+    )
+    .all(userId, limit);
+  return rows.map((r) => ({
+    id: String(r.id),
+    mode: String(r.mode),
+    market: String(r.market),
+    side: String(r.side),
+    qty: Number(r.qty),
+    priceUsd: Number(r.price_usd),
+    notionalUsd: Number(r.notional_usd),
+    feeUsd: Number(r.fee_usd),
+    reason: String(r.reason),
+    status: String(r.status),
+    signature: r.signature ? String(r.signature) : null,
+    at: String(r.created_at),
+  }));
 }
