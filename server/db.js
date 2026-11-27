@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS_DIR = path.join(here, '..', 'migrations');
+// SQLite migrations live next to the server on purpose: the repository is also
+// checked by a CI job that installs every migrations/*.sql into Postgres, and
+// these files are SQLite dialect (PRAGMA, datetime('now')).
+const MIGRATIONS_DIR = path.join(here, 'migrations');
 
 /**
  * Open (and migrate) the database.
