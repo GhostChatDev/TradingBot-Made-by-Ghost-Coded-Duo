@@ -255,11 +255,13 @@ export function logEvent(db, userId, kind, message, botId = null) {
  */
 
 /**
- * Run one tick. Paper mode only records; devnet returns a draft for the wallet to sign.
+ * Run one tick. Paper mode only records; devnet and mainnet return a draft for the
+ * user's own wallet to sign. Mainnet throws unless MAINNET_ENABLED=true.
  * @param {Db} db
  * @param {TickInput} p
+ * @param {NodeJS.ProcessEnv} [env]
  */
-export function tick(db, p) {
+export function tick(db, p, env = process.env) {
   const { userId, market, strategy, params, mode, seed = 0, botId } = p;
   if (mode !== 'paper' && mode !== 'devnet' && mode !== 'mainnet') {
     throw new Error('only paper, devnet and mainnet are known modes');
@@ -267,7 +269,7 @@ export function tick(db, p) {
   // The one place a mainnet transaction could ever be built. With MAINNET_ENABLED
   // unset this throws and logs why, before any price or strategy work happens.
   if (mode === 'mainnet') {
-    mainnetTransaction({ mode: 'mainnet', action: 'build', transaction: 'unsigned-mainnet-draft' });
+    mainnetTransaction({ mode: 'mainnet', action: 'build', transaction: 'unsigned-mainnet-draft' }, env);
   }
   const decision = evaluate(db, { userId, market, strategy, params, mode, seed });
   logEvent(db, userId, 'decision', `${decision.signal.toUpperCase()} - ${decision.reason}`, botId ?? null);
@@ -303,17 +305,21 @@ export function tick(db, p) {
     return { decision, trade: { id, status: 'paper_filled', signature: null }, blocked: null };
   }
 
-  // Devnet: the server never builds or signs a transaction. It stores the draft
-  // the user's own wallet will approve, so the approval can be checked once.
+  // Devnet and mainnet both end here: the server never builds or signs a
+  // transaction. It stores the draft the user's own wallet will approve, so the
+  // approval can be checked once. A mainnet draft only exists when the guard above
+  // let it through (MAINNET_ENABLED=true), and it is labelled mainnet, never devnet.
+  const draftMode = mode === 'mainnet' ? 'mainnet' : 'devnet';
   const draftId = crypto.randomUUID();
-  const approvalMessage = `Ghost Bot devnet approval\n${decision.signal.toUpperCase()} ${(notionalUsd / decision.price).toFixed(8)} ${market}\nat $${decision.price}\nreason: ${decision.reason}\ndraft: ${draftId}`;
+  const approvalMessage = `Ghost Bot ${draftMode} approval\n${decision.signal.toUpperCase()} ${(notionalUsd / decision.price).toFixed(8)} ${market}\nat $${decision.price}\nreason: ${decision.reason}\ndraft: ${draftId}`;
   db.prepare(
     `INSERT INTO trades (id, user_id, bot_id, mode, market, side, qty, price_usd, notional_usd, fee_usd, reason, status, signature, draft_tx, draft_at)
-     VALUES (?, ?, ?, 'devnet', ?, ?, ?, ?, ?, ?, ?, 'awaiting_wallet_signature', NULL, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'awaiting_wallet_signature', NULL, ?, ?)`,
   ).run(
     draftId,
     userId,
     botId ?? null,
+    draftMode,
     market,
     decision.signal,
     Number((notionalUsd / decision.price).toFixed(8)),
@@ -324,7 +330,7 @@ export function tick(db, p) {
     approvalMessage,
     new Date().toISOString(),
   );
-  logEvent(db, userId, 'draft', `Devnet draft for your wallet to approve: ${decision.signal.toUpperCase()} $${notionalUsd.toFixed(2)}`, botId ?? null);
+  logEvent(db, userId, 'draft', `${draftMode === 'mainnet' ? 'Mainnet' : 'Devnet'} draft for your wallet to approve: ${decision.signal.toUpperCase()} $${notionalUsd.toFixed(2)}`, botId ?? null);
   return {
     decision,
     trade: { id: draftId, draftId, status: 'awaiting_wallet_signature', signature: null, draftTx: approvalMessage },

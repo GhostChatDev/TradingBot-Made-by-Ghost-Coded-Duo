@@ -22,6 +22,8 @@ export const RATE_LIMIT_PER_MINUTE = 60;
  * @param {NodeJS.ProcessEnv} env
  */
 export function loadConfig(env = process.env) {
+  // `node --test` runs each test file in its own process, which sets NODE_TEST_CONTEXT.
+  const isTest = env.NODE_ENV === 'test' || env.NODE_TEST_CONTEXT !== undefined;
   const rawMode = (env.TRADING_MODE || 'paper').toLowerCase();
   const payments = (env.PAYMENTS_MODE || 'test').toLowerCase();
 
@@ -39,12 +41,31 @@ export function loadConfig(env = process.env) {
     mainnetEnabled,
     /** 'test' = fake money top-ups. 'off' = no payments at all. */
     payments: payments === 'off' ? 'off' : 'test',
-    keyPepper: env.API_KEY_PEPPER || 'dev-only-pepper-change-me',
+    keyPepper: readPepper(env, isTest),
     creditsPerSignal: CREDITS_PER_SIGNAL,
     rateLimitPerMinute: RATE_LIMIT_PER_MINUTE,
     maxTradeUsd: DEFAULT_MAX_TRADE_USD,
     maxDailyLossUsd: DEFAULT_MAX_DAILY_LOSS_USD,
   };
+}
+
+/**
+ * The pepper that goes into every API key hash. It must come from the
+ * environment: a public, hard-coded pepper in the repository would let anyone
+ * holding the database test guessed keys against it. Tests get a fixed value so
+ * they can run without one; a real server refuses to start without it.
+ * @param {NodeJS.ProcessEnv} env
+ * @param {boolean} isTest
+ * @returns {string}
+ */
+export function readPepper(env, isTest) {
+  const pepper = String(env.API_KEY_PEPPER ?? '').trim();
+  if (pepper.length >= 16) return pepper;
+  if (isTest) return 'test-only-pepper';
+  throw new Error(
+    'API_KEY_PEPPER is missing or shorter than 16 characters. Generate one (for example `openssl rand -hex 32`) ' +
+      'and set it in the server environment before starting. API keys are not usable without it.',
+  );
 }
 
 /**

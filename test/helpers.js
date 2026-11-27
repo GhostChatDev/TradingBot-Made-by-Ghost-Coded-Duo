@@ -16,7 +16,7 @@ export async function startTestServer(env = {}) {
     TRADING_MODE: 'paper',
     PAYMENTS_MODE: 'test',
     MAINNET_ENABLED: 'false',
-    API_KEY_PEPPER: 'test-pepper',
+    API_KEY_PEPPER: 'test-pepper-0123456789abcdef',
     ...env,
   });
   const db = openDb(':memory:');

@@ -31,6 +31,7 @@ npm run typecheck         # tsc --noEmit
 | **Devnet** | Same UI, mode switch | Free test SOL, no real value | Switch the mode; your wallet signs each devnet transaction |
 | **Mainnet (real funds)** | — | Real money | **Off.** Two things must both change: `MAINNET_ENABLED=true` in the server environment *and* the in-app switch. Ships off; the server refuses a mainnet request while it is off |
 | **Payments** | Credits page | Fake money | **Off.** `PAYMENTS_MODE=test` gives test top-ups only. Real payments stay off until you switch them on after legal review |
+| **Pepper** | Server-only | — | **Required.** `API_KEY_PEPPER` (16+ characters, `openssl rand -hex 32`). The server refuses to start without it, so no API key hash is ever made with a value published in this repo |
 
 Credits are an **internal balance for API calls**, never crypto held for anyone.
 
