@@ -1,6 +1,25 @@
 {
-  "name": "browser-checks",
+  "name": "solana-bot-noncustodial",
+  "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
-  "description": "The browser checks in this folder are CommonJS (they use require). This file marks the folder so Node does not treat them as ES modules."
+  "description": "Non-custodial Solana trading bot demo: paper and devnet only, API keys, prepaid credits ledger.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "typecheck": "tsc --noEmit -p jsconfig.json"
+  },
+  "dependencies": {
+    "express": "^4.21.1",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^22.10.2",
+    "@types/express": "^4.17.21"
+  }
 }
