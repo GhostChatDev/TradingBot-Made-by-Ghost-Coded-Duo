@@ -23,9 +23,9 @@ export const GOAL_CENTS = 500000;
 
 /** A small default watchlist. The person can edit it; ids are pump.fun mints. */
 export const DEFAULT_WATCHLIST = [
-  { mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL-PERP-PAPER' },
-  { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC-PAPER' },
-  { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', symbol: 'BONK-PAPER' },
+  { mint: 'paper-mint-a', symbol: 'TOKEN-A (paper)' },
+  { mint: 'paper-mint-b', symbol: 'TOKEN-B (paper)' },
+  { mint: 'paper-mint-c', symbol: 'TOKEN-C (paper)' },
 ];
 
 /**
@@ -126,8 +126,10 @@ export function ruleSummary() {
 
 /**
  * Paper entry: turn a dollar size into whole cents and the token amount at a price.
+ * @param {string} mint
  * @param {number} sizeCents
  * @param {number} priceMicros
+ * @returns {Position}
  */
 export function paperPosition(mint, sizeCents, priceMicros) {
   return {

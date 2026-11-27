@@ -28,7 +28,7 @@ import {
 function recorder() {
   /** @type {string[]} */
   const lines = [];
-  return { lines, log: (line) => lines.push(line) };
+  return { lines, log: (/** @type {string} */ line) => lines.push(line) };
 }
 
 test('the flag is off unless it is exactly the string true', () => {

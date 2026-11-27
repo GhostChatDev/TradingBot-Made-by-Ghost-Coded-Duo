@@ -17,7 +17,7 @@ export const STRATEGIES = ['sma_crossover'];
  * @param {string} input.market
  * @param {string} input.strategy
  * @param {{fast:number,slow:number}} input.params
- * @param {'paper'|'devnet'} input.mode
+ * @param {'paper'|'devnet'|'mainnet'} input.mode
  * @param {number} input.seed
  */
 export function evaluate(db, input) {
@@ -84,7 +84,7 @@ export function checkRisk(db, userId, notionalUsd, today) {
  * @typedef {object} TradeRecord
  * @property {string} userId
  * @property {string} [botId]
- * @property {'paper'|'devnet'} mode
+ * @property {'paper'|'devnet'|'mainnet'} mode
  * @property {string} market
  * @property {string} side
  * @property {number} qty
@@ -220,7 +220,7 @@ export function logEvent(db, userId, kind, message, botId = null) {
  * @property {string} market
  * @property {string} strategy
  * @property {{fast: number, slow: number}} params
- * @property {'paper'|'devnet'} mode
+ * @property {'paper'|'devnet'|'mainnet'} mode
  * @property {number} [seed]
  * @property {string} [botId]
  * @property {number} [maxTradeUsd]
