@@ -1,94 +1,67 @@
-// server/credits.js - a prepaid integer-credit ledger. Never crypto held for anyone.
-import crypto from 'node:crypto';
+// server/strategy.js - one simple, honest strategy: a moving-average crossover.
 
 /**
- * @param {import('better-sqlite3').Database} db
- * @param {string} userId
+ * @param {number[]} values
+ * @param {number} n
  */
-export function ensureAccount(db, userId) {
-  db.prepare('INSERT OR IGNORE INTO credits (user_id, balance) VALUES (?, 0)').run(userId);
+export function sma(values, n) {
+  if (n <= 0 || values.length < n) return null;
+  let sum = 0;
+  for (let i = values.length - n; i < values.length; i += 1) sum += values[i];
+  return sum / n;
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
- * @param {string} userId
+ * @typedef {{ signal: 'buy'|'sell'|'hold', fast: number|null, slow: number|null, reason: string }} Signal
  */
-export function getBalance(db, userId) {
-  const row = db.prepare('SELECT balance FROM credits WHERE user_id = ?').get(userId);
-  return row ? Number(row.balance) : 0;
-}
 
 /**
- * Take exactly `cost` credits, or nothing at all. The balance can never go negative
- * because the UPDATE is conditional; a second racing call sees balance 0 and is refused.
- * @param {import('better-sqlite3').Database} db
- * @param {string} userId
- * @param {number} cost
- * @param {string} reason
- * @param {string|null} ref
- * @returns {{ok: boolean, balance: number}}
+ * Compare the fast and slow average now with where they were one tick ago.
+ * @param {number[]} prices oldest first, newest last
+ * @param {{fast: number, slow: number}} params
+ * @returns {Signal}
  */
-export function spend(db, userId, cost, reason, ref = null) {
-  if (!Number.isInteger(cost) || cost <= 0) throw new Error('cost must be a positive integer');
-  const run = db.transaction(() => {
-    ensureAccount(db, userId);
-    const info = db
-      .prepare('UPDATE credits SET balance = balance - ?, updated_at = datetime(\'now\') WHERE user_id = ? AND balance >= ?')
-      .run(cost, userId, cost);
-    if (info.changes === 0) return { ok: false, balance: getBalance(db, userId) };
-    db.prepare('INSERT INTO credit_entries (id, user_id, delta, reason, ref) VALUES (?, ?, ?, ?, ?)').run(
-      crypto.randomUUID(),
-      userId,
-      -cost,
-      reason,
-      ref,
-    );
-    return { ok: true, balance: getBalance(db, userId) };
-  });
-  return run();
-}
-
-/**
- * TEST MODE ONLY: fake money.
- * @param {import('better-sqlite3').Database} db
- * @param {string} userId
- * @param {number} amount
- * @param {string} ref
- */
-export function grantTestCredits(db, userId, amount, ref) {
-  if (!Number.isInteger(amount) || amount <= 0) throw new Error('amount must be a positive integer');
-  const run = db.transaction(() => {
-    ensureAccount(db, userId);
-    db.prepare('UPDATE credits SET balance = balance + ?, updated_at = datetime(\'now\') WHERE user_id = ?').run(
-      amount,
-      userId,
-    );
-    db.prepare('INSERT INTO credit_entries (id, user_id, delta, reason, ref) VALUES (?, ?, ?, ?, ?)').run(
-      crypto.randomUUID(),
-      userId,
-      amount,
-      'test_topup',
-      ref,
-    );
-    return getBalance(db, userId);
-  });
-  return run();
-}
-
-/**
- * @param {import('better-sqlite3').Database} db
- * @param {string} userId
- * @param {number} limit
- */
-export function ledger(db, userId, limit = 25) {
-  const rows = db
-    .prepare('SELECT id, delta, reason, ref, created_at FROM credit_entries WHERE user_id = ? ORDER BY created_at DESC LIMIT ?')
-    .all(userId, limit);
-  return rows.map((r) => ({
-    id: String(r.id),
-    delta: Number(r.delta),
-    reason: String(r.reason),
-    ref: r.ref ? String(r.ref) : null,
-    createdAt: String(r.created_at),
-  }));
+export function crossoverSignal(prices, params) {
+  const { fast, slow } = params;
+  if (!Number.isInteger(fast) || !Number.isInteger(slow) || fast < 2 || slow <= fast) {
+    return {
+      signal: 'hold',
+      fast: null,
+      slow: null,
+      reason: 'invalid parameters: slow must be a whole number greater than fast (fast >= 2)',
+    };
+  }
+  if (prices.length < slow + 1) {
+    return { signal: 'hold', fast: null, slow: null, reason: `waiting for ${slow + 1} price points` };
+  }
+  const nowFast = sma(prices, fast);
+  const nowSlow = sma(prices, slow);
+  const prevFast = sma(prices.slice(0, -1), fast);
+  const prevSlow = sma(prices.slice(0, -1), slow);
+  if (nowFast === null || nowSlow === null || prevFast === null || prevSlow === null) {
+    return { signal: 'hold', fast: null, slow: null, reason: 'not enough price history' };
+  }
+  const f = (n) => n.toFixed(4);
+  if (prevFast <= prevSlow && nowFast > nowSlow) {
+    return {
+      signal: 'buy',
+      fast: nowFast,
+      slow: nowSlow,
+      reason: `SMA${fast} ${f(nowFast)} crossed above SMA${slow} ${f(nowSlow)}`,
+    };
+  }
+  if (prevFast >= prevSlow && nowFast < nowSlow) {
+    return {
+      signal: 'sell',
+      fast: nowFast,
+      slow: nowSlow,
+      reason: `SMA${fast} ${f(nowFast)} crossed below SMA${slow} ${f(nowSlow)}`,
+    };
+  }
+  return {
+    signal: 'hold',
+    fast: nowFast,
+    slow: nowSlow,
+    reason: `no crossover: SMA${fast} ${f(nowFast)} vs SMA${slow} ${f(nowSlow)}`,
+  };
 }
