@@ -11,6 +11,8 @@ import { getBalance, ledger, spend, grantTestCredits, ensureAccount } from './cr
 import { evaluate, tick, checkRisk, recentEvents, recentTrades, logEvent } from './bot.js';
 import { markets, history } from './prices.js';
 import { findKeyMaterial, redact, CUSTODY_STATEMENT } from './custody.js';
+import { mark as markPump, summary as pumpSummary } from './pump-run.js';
+import { getDelivery, setDelivery } from './delivery.js';
 import { base58Decode } from './base58.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -201,6 +203,62 @@ export function createApp(config = loadConfig(), existingDb = undefined) {
     }
     logEvent(db, user.id, 'devnet_submitted', `Devnet ${String(draft.side).toUpperCase()} approved in your wallet for ${String(draft.market)}`);
     res.json({ ok: true, draftId, status: 'devnet_submitted' });
+  });
+
+  // ---- pump.fun paper run (always paper: this route cannot build a transaction) ----
+  app.get('/api/pump', (req, res) => {
+    const user = sessionUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'sign_in', message: 'Sign in with your wallet first.' });
+      return;
+    }
+    res.json(pumpSummary(db, user.id));
+  });
+
+  app.post('/api/pump/step', refuseKeyMaterial, (req, res) => {
+    const user = sessionUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'sign_in', message: 'Sign in with your wallet first.' });
+      return;
+    }
+    if (String(req.body?.mode ?? 'paper') !== 'paper') {
+      res.status(409).json({ error: 'paper_only', message: 'The pump.fun rule set runs in paper mode only in this build.' });
+      return;
+    }
+    const step = Number.isFinite(Number(req.body?.step)) ? Number(req.body.step) : 0;
+    // The per-trade cap comes from the same row every other trade is checked against.
+    const result = markPump(db, {
+      userId: user.id,
+      step,
+      maxSizeCents: Math.round(user.maxTradeUsd * 100),
+      log: (kind, message) => logEvent(db, user.id, kind, message),
+    });
+    res.json({ ...result, simulated: true, summary: pumpSummary(db, user.id) });
+  });
+
+  app.get('/api/delivery', (req, res) => {
+    const user = sessionUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'sign_in', message: 'Sign in with your wallet first.' });
+      return;
+    }
+    res.json({ delivery: getDelivery(db, user.id) });
+  });
+
+  app.post('/api/delivery', refuseKeyMaterial, (req, res) => {
+    const user = sessionUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'sign_in', message: 'Sign in with your wallet first.' });
+      return;
+    }
+    const wanted = String(req.body?.delivery ?? '');
+    if (wanted !== 'json' && wanted !== 'signer') {
+      res.status(400).json({ error: 'bad_delivery', message: 'delivery must be "json" (draft only) or "signer" (ask a wallet to sign).' });
+      return;
+    }
+    setDelivery(db, user.id, wanted);
+    logEvent(db, user.id, 'delivery', `Devnet drafts handed over as: ${wanted === 'json' ? 'JSON for your own tooling' : 'a wallet signature request'}`);
+    res.json({ ok: true, delivery: wanted });
   });
 
   app.get('/api/bot/state', (req, res) => {

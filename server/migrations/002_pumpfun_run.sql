@@ -1,12 +1,11 @@
 -- 002_pumpfun_run.sql - the pump.fun paper run: one row per account, all money in whole cents.
 --
--- This is the rule set the person asked for:
---   take profit at +10.00 USD, stop loss at -20%, rotate to the next token,
---   compound each win into the next position, stop at 5,000 USD realised.
--- Updated by server/pump-run.js on every mark. Nothing here is a promise of profit.
+-- The rule set: take profit at +10.00 USD, stop loss at -20%, rotate to the next
+-- token, compound each win into the next position, stop at 5,000 USD realised.
+-- server/pump-run.js updates these rows on every mark. Nothing here is a promise.
 
 CREATE TABLE IF NOT EXISTS pump_runs (
-  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT PRIMARY KEY,
   watchlist_json TEXT NOT NULL DEFAULT '[]',
   size_cents INTEGER NOT NULL DEFAULT 500,
   realised_cents INTEGER NOT NULL DEFAULT 0,
@@ -22,10 +21,10 @@ CREATE TABLE IF NOT EXISTS pump_runs (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Delivery address (finding 5): what the bot does with a devnet transaction when
--- nobody is watching. Chosen by the person, never assumed. Default: JSON out only.
+-- What the bot does with a devnet draft when nobody is watching. Chosen by the
+-- person, never assumed: 'json' (default) or 'signer'.
 CREATE TABLE IF NOT EXISTS delivery_settings (
-  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  delivery TEXT NOT NULL DEFAULT 'json' CHECK (delivery IN ('json', 'signer')),
+  user_id TEXT PRIMARY KEY,
+  delivery TEXT NOT NULL DEFAULT 'json',
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

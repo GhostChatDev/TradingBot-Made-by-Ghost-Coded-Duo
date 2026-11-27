@@ -1,281 +1,250 @@
-// server/pump-run.js - runs the pump.fun rule set in PAPER mode, on purpose, on request.
+// server/pump-run.js - the pump.fun rule set, running in PAPER mode only.
 //
-// Every number here is simulated: the prices are the paper feed in server/prices.js,
-// the balance is fake, and no transaction is built or signed. The rules themselves
-// (take profit $10, stop loss 20%, rotate, compound, goal $5,000) live in
-// server/pumpfun.js and are fixed: the person can lower the starting size but not
-// raise a rule.
+// Rules (from server/pumpfun.js, unit-tested there):
+//   take profit at +10.00 USD, stop loss at -20%, rotate to the next token,
+//   compound each win, stop at 5,000 USD realised.
 //
-// All money is whole US cents. Never a floating-point dollar sum.
+// Every number here is SIMULATED. The price feed is a deterministic paper walk,
+// not live pump.fun data, and no transaction is ever built: this module has no
+// wallet, no key and no RPC. Paper marks are labelled "simulated" on screen.
+
 import crypto from 'node:crypto';
 import {
   DEFAULT_WATCHLIST,
-  decideExit,
+  GOAL_CENTS,
+  STOP_LOSS_PCT,
+  TAKE_PROFIT_CENTS,
   afterClose,
+  decideExit,
   nextToken,
   paperPosition,
   ruleSummary,
-  GOAL_CENTS,
 } from './pumpfun.js';
-import { history } from './prices.js';
-import { logEvent } from './bot.js';
-import { Db } from './db.js';
 
-/** Starting size in cents, and the ceiling the person may set. */
-export const DEFAULT_SIZE_CENTS = 500;
-export const MAX_SIZE_CENTS = 1000;
+/** @typedef {import('./db.js').Db} Db */
 
-/** The four markets in the paper feed that the pump run trades. */
-const PAPER_MINTS = ['pump-a', 'pump-b', 'pump-c', 'pump-d'];
+export const DEFAULT_SIZE_CENTS = 500; // $5.00
+const DEFAULT_MINT = DEFAULT_WATCHLIST[0]?.mint ?? 'paper-mint-1';
 
 /**
- * @typedef {object} PumpRun
- * @property {string} userId
- * @property {{mint: string, symbol: string}[]} watchlist
- * @property {number} sizeCents
- * @property {number} realisedCents
- * @property {{mint: string, symbol: string, entryCents: number, entryPrice: number, tokens: number, lastPrice: number}|null} open
- * @property {{mint: string, symbol: string, pnlCents: number, reason: string, at: string}[]} closed
- * @property {boolean} goalReached
+ * A deterministic simulated price for one token at one step of the run.
+ * Same mint + same step always gives the same micro-USD price, so a test and a
+ * reload see the same numbers. A short hash keeps it from drifting to zero.
+ * @param {string} mint
+ * @param {number} step
+ * @returns {number} price in micro-USD per token
  */
+export function paperPriceMicros(mint, step) {
+  const digest = crypto.createHash('sha256').update(`${mint}:${step}`).digest();
+  const swing = (digest[0] / 255 - 0.45) * 0.35; // -0.1575 .. +0.1925 per step
+  const base = 0.00002 + (digest[1] / 255) * 0.00005; // 20e-6 .. 70e-6 USD
+  const decay = Math.max(0.35, 1 + swing * Math.min(step, 12) * 0.5);
+  return Math.max(1, Math.round(base * decay * 1e6));
+}
 
 /**
- * Read the run for an account, creating the row (and the watchlist) the first time.
+ * The stored run for a user, created on first use.
  * @param {Db} db
  * @param {string} userId
- * @returns {PumpRun}
+ * @returns {any}
  */
-export function loadRun(db, userId) {
+export function ensureRun(db, userId) {
   const row = db.prepare('SELECT * FROM pump_runs WHERE user_id = ?').get(userId);
-  if (!row) {
-    saveRun(db, {
-      userId,
-      watchlist: DEFAULT_WATCHLIST,
-      sizeCents: DEFAULT_SIZE_CENTS,
-      realisedCents: 0,
-      open: null,
-      closed: [],
-      goalReached: false,
-    });
-    return loadRun(db, userId);
-  }
-  return {
-    userId: String(row.user_id),
-    watchlist: JSON.parse(String(row.watchlist_json)),
-    sizeCents: Number(row.size_cents),
-    realisedCents: Number(row.realised_cents),
-    open: row.open_mint
-      ? {
-          mint: String(row.open_mint),
-          symbol: String(row.open_symbol),
-          entryCents: Number(row.open_entry_cents),
-          entryPrice: Number(row.open_entry_price_micros),
-          tokens: Number(row.open_tokens),
-          lastPrice: Number(row.last_price_micros),
-        }
-      : null,
-    closed: JSON.parse(String(row.closed_json)),
-    goalReached: Number(row.goal_reached) === 1,
-  };
+  if (row) return row;
+  const watchlist = JSON.stringify(DEFAULT_WATCHLIST);
+  db.prepare('INSERT INTO pump_runs (user_id, watchlist_json) VALUES (?, ?)').run(userId, watchlist);
+  return db.prepare('SELECT * FROM pump_runs WHERE user_id = ?').get(userId);
 }
 
 /**
  * @param {Db} db
- * @param {PumpRun} run
+ * @param {string} userId
+ * @param {any} run
  */
-export function saveRun(db, run) {
-  const open = run.open;
+function save(db, userId, run) {
   db.prepare(
-    `INSERT INTO pump_runs (user_id, watchlist_json, size_cents, realised_cents, open_mint, open_symbol,
-       open_entry_cents, open_entry_price_micros, open_tokens, last_price_micros, last_mark_at, closed_json,
-       goal_reached, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-     ON CONFLICT(user_id) DO UPDATE SET
-       watchlist_json = excluded.watchlist_json, size_cents = excluded.size_cents,
-       realised_cents = excluded.realised_cents, open_mint = excluded.open_mint,
-       open_symbol = excluded.open_symbol, open_entry_cents = excluded.open_entry_cents,
-       open_entry_price_micros = excluded.open_entry_price_micros, open_tokens = excluded.open_tokens,
-       last_price_micros = excluded.last_price_micros, last_mark_at = excluded.last_mark_at,
-       closed_json = excluded.closed_json, goal_reached = excluded.goal_reached,
-       updated_at = datetime('now')`,
+    `UPDATE pump_runs SET size_cents = ?, realised_cents = ?, open_mint = ?, open_symbol = ?,
+       open_entry_cents = ?, open_entry_price_micros = ?, open_tokens = ?, last_price_micros = ?,
+       last_mark_at = ?, closed_json = ?, goal_reached = ?, updated_at = datetime('now')
+     WHERE user_id = ?`,
   ).run(
-    run.userId,
-    JSON.stringify(run.watchlist),
-    run.sizeCents,
-    run.realisedCents,
-    open ? open.mint : null,
-    open ? open.symbol : null,
-    open ? open.entryCents : null,
-    open ? open.entryPrice : null,
-    open ? open.tokens : null,
-    open ? open.lastPrice : null,
-    open ? new Date().toISOString() : null,
-    JSON.stringify(run.closed),
-    run.goalReached ? 1 : 0,
+    run.size_cents,
+    run.realised_cents,
+    run.open_mint,
+    run.open_symbol,
+    run.open_entry_cents,
+    run.open_entry_price_micros,
+    run.open_tokens,
+    run.last_price_micros,
+    run.last_mark_at,
+    run.closed_json,
+    run.goal_reached,
+    userId,
   );
 }
 
 /**
- * Set the starting size in cents. Lowering is fine; going above the ceiling is not.
+ * Step the paper run once: open a position, or mark the open one and close it
+ * when a rule fires, then rotate to the next token.
  * @param {Db} db
- * @param {string} userId
- * @param {number} sizeCents
+ * @param {{userId: string, step: number, maxSizeCents?: number, log?: (kind: string, message: string) => void}} p
+ * @returns {{action: string, pnlCents: number, reason: string, symbol: string|null, realisedCents: number, sizeCents: number, goalReached: boolean}}
  */
-export function setSize(db, userId, sizeCents) {
-  const run = loadRun(db, userId);
-  const wanted = Math.round(Number(sizeCents));
-  if (!Number.isFinite(wanted) || wanted <= 0) {
-    throw new Error('the size must be a positive number of cents');
-  }
-  // The cap is a cap: clamping down is silent, going up is refused, not quietly capped.
-  if (wanted > MAX_SIZE_CENTS) {
-    throw new Error(`the starting size cannot go above $${(MAX_SIZE_CENTS / 100).toFixed(2)}`);
-  }
-  run.sizeCents = wanted;
-  saveRun(db, run);
-  return run;
-}
+export function mark(db, p) {
+  const log = p.log ?? (() => {});
+  const userId = p.userId;
+  let run = ensureRun(db, userId);
+  const watchlist = /** @type {{mint: string, symbol: string}[]} */ (JSON.parse(run.watchlist_json));
+  const step = Math.max(0, Math.round(p.step));
 
-/**
- * Pick the market to trade: the open one, else the next unused token, else the first.
- * @param {PumpRun} run
- * @returns {{mint: string, symbol: string}}
- */
-function pickMarket(run) {
-  if (run.open) return { mint: run.open.mint, symbol: run.open.symbol };
-  const done = new Set(run.closed.map((c) => c.mint));
-  const fresh = nextToken(run.watchlist, '', done);
-  if (fresh) return fresh;
-  // Every token has taken a profit in this run: start again from the first.
-  return run.watchlist[0];
-}
+  // The per-trade cap always wins over the run's own size.
+  const capCents = Math.max(1, Math.round((p.maxSizeCents ?? DEFAULT_SIZE_CENTS) / 1));
+  const sizeCents = Math.min(Math.max(1, Math.round(run.size_cents)), capCents);
 
-/**
- * One step of the pump.fun run. Opens, marks or closes a paper position by the rules.
- *
- * @param {Db} db
- * @param {string} userId
- * @param {number} [seed]
- * @returns {{action: string, reason: string, run: PumpRun, closedNow: object|null}}
- */
-export function markPumpRun(db, userId, seed = 0) {
-  const run = loadRun(db, userId);
-  const rules = ruleSummary();
-
-  if (run.goalReached) {
+  if (run.goal_reached) {
     return {
-      action: 'stopped',
-      reason: `${rules.goalUsd === GOAL_CENTS / 100 ? 'goal reached' : ''}: realised $${(run.realisedCents / 100).toFixed(2)} is at or above the $${(GOAL_CENTS / 100).toFixed(2)} target - the paper run is over`,
-      run,
-      closedNow: null,
+      action: 'done',
+      pnlCents: 0,
+      reason: `the run is over: realised $${(run.realised_cents / 100).toFixed(2)} reached the target`,
+      symbol: null,
+      realisedCents: run.realised_cents,
+      sizeCents: 0,
+      goalReached: true,
     };
   }
 
-  // Open a position when there is none.
-  if (!run.open) {
-    const market = pickMarket(run);
-    const price = history(market.mint, 30, seed).last;
-    const priceMicros = Math.max(1, Math.round(price * 1e6));
-    const pos = paperPosition(market.mint, run.sizeCents, priceMicros);
-    run.open = {
-      mint: pos.mint,
-      symbol: market.symbol,
-      entryCents: pos.entryCents,
-      entryPrice: pos.entryPrice,
-      tokens: pos.tokens,
-      lastPrice: pos.entryPrice,
-    };
-    saveRun(db, run);
-    const reason = `paper entry: $${(pos.entryCents / 100).toFixed(2)} into ${market.symbol} at a simulated price - no transaction is built or signed`;
-    logEvent(db, userId, 'pump_open', reason);
-    return { action: 'open', reason, run, closedNow: null };
+  // Nothing open: open the first token of the watchlist.
+  if (!run.open_mint) {
+    const first = { mint: DEFAULT_MINT, symbol: watchlist[0]?.symbol ?? 'PAPER' };
+    const priceMicros = paperPriceMicros(first.mint, step);
+    const pos = paperPosition(first.mint, sizeCents, priceMicros);
+    run.open_mint = pos.mint;
+    run.open_symbol = first.symbol;
+    run.open_entry_cents = pos.entryCents;
+    run.open_entry_price_micros = pos.entryPrice;
+    run.open_tokens = pos.tokens;
+    run.last_price_micros = priceMicros;
+    run.last_mark_at = new Date().toISOString();
+    save(db, userId, run);
+    const reason = `simulated paper entry: ${first.symbol} $${(sizeCents / 100).toFixed(2)} at $${(priceMicros / 1e6).toFixed(8)} (paper price, not live)`;
+    log('pump_open', reason);
+    return { action: 'open', pnlCents: 0, reason, symbol: first.symbol, realisedCents: run.realised_cents, sizeCents, goalReached: false };
   }
 
-  // Mark the open position at the current simulated price.
-  const priceMicros = Math.max(1, Math.round(history(run.open.mint, 30, seed).last * 1e6));
-  run.open.lastPrice = priceMicros;
+  // Mark the open position at this step's simulated price.
+  const priceMicros = paperPriceMicros(String(run.open_mint), step);
   const exit = decideExit(
-    { mint: run.open.mint, entryCents: run.open.entryCents, entryPrice: run.open.entryPrice, tokens: run.open.tokens },
+    {
+      mint: String(run.open_mint),
+      entryCents: Number(run.open_entry_cents),
+      entryPrice: Number(run.open_entry_price_micros),
+      tokens: Number(run.open_tokens),
+    },
     priceMicros,
   );
+  run.last_price_micros = priceMicros;
+  run.last_mark_at = new Date().toISOString();
 
   if (exit.action === 'hold') {
-    saveRun(db, run);
-    logEvent(db, userId, 'pump_mark', `${run.open.symbol} (paper): ${exit.reason}`);
-    return { action: 'hold', reason: exit.reason, run, closedNow: null };
+    save(db, userId, run);
+    const reason = `${String(run.open_symbol)} marked at $${(priceMicros / 1e6).toFixed(8)} (paper), ${exit.reason}`;
+    log('pump_mark', reason);
+    return { action: 'hold', pnlCents: exit.pnlCents, reason, symbol: String(run.open_symbol), realisedCents: run.realised_cents, sizeCents, goalReached: false };
   }
 
-  // Close: take profit or stop loss, then compound by the rules.
-  const closed = {
-    mint: run.open.mint,
-    symbol: run.open.symbol,
+  // A rule fired: close, compound, rotate.
+  const closedMint = String(run.open_mint);
+  const after = afterClose({
+    sizeCents: Number(run.open_entry_cents),
+    realisedCents: Number(run.realised_cents),
     pnlCents: exit.pnlCents,
-    reason: exit.reason,
+  });
+  const closed = /** @type {any[]} */ (JSON.parse(run.closed_json));
+  closed.unshift({
+    mint: closedMint,
+    symbol: String(run.open_symbol),
+    action: exit.action,
+    pnlCents: exit.pnlCents,
     at: new Date().toISOString(),
-  };
-  const after = afterClose({ sizeCents: run.sizeCents, realisedCents: run.realisedCents, pnlCents: exit.pnlCents });
-  run.closed = [closed, ...run.closed].slice(0, 50);
-  run.realisedCents = after.realisedCents;
-  run.sizeCents = after.nextSizeCents > 0 ? after.nextSizeCents : run.sizeCents;
-  run.goalReached = after.goalReached;
-  run.open = null;
-  saveRun(db, run);
-  logEvent(db, userId, 'pump_close', `${closed.symbol} (paper) closed: ${exit.reason}; ${after.note}`);
-  return { action: exit.action, reason: exit.reason, run, closedNow: closed };
+  });
+
+  run.realised_cents = after.realisedCents;
+  run.closed_json = JSON.stringify(closed.slice(0, 40));
+  run.goal_reached = after.goalReached ? 1 : 0;
+  const doneMints = new Set(closed.filter((c) => c.pnlCents > 0).map((c) => String(c.mint)));
+  const next = after.goalReached ? null : nextToken(watchlist, closedMint, doneMints);
+
+  if (!next || after.nextSizeCents <= 0) {
+    run.open_mint = null;
+    run.open_symbol = null;
+    run.open_entry_cents = null;
+    run.open_entry_price_micros = null;
+    run.open_tokens = null;
+    run.size_cents = Math.max(0, after.nextSizeCents);
+    if (!after.goalReached) run.goal_reached = 1;
+    save(db, userId, run);
+    const reason = `${exit.action === 'take_profit' ? 'take profit' : 'stop loss'} closed ${closed[0].symbol} for ${pnlText(exit.pnlCents)}; ${after.note}`;
+    log('pump_close', reason);
+    return { action: exit.action, pnlCents: exit.pnlCents, reason, symbol: null, realisedCents: run.realised_cents, sizeCents: 0, goalReached: true };
+  }
+
+  // Rotate into the next token at the same step's simulated price.
+  const nextPrice = paperPriceMicros(next.mint, step);
+  const pos = paperPosition(next.mint, after.nextSizeCents, nextPrice);
+  run.open_mint = pos.mint;
+  run.open_symbol = next.symbol;
+  run.open_entry_cents = pos.entryCents;
+  run.open_entry_price_micros = pos.entryPrice;
+  run.open_tokens = pos.tokens;
+  run.size_cents = after.nextSizeCents;
+  save(db, userId, run);
+  const reason = `${exit.action === 'take_profit' ? 'take profit' : 'stop loss'} closed ${closed[0].symbol} for ${pnlText(exit.pnlCents)}; rotated into ${next.symbol} at $${(nextPrice / 1e6).toFixed(8)} (paper); ${after.note}`;
+  log('pump_rotate', reason);
+  return { action: 'rotate', pnlCents: exit.pnlCents, reason, symbol: next.symbol, realisedCents: run.realised_cents, sizeCents: after.nextSizeCents, goalReached: false };
 }
 
 /**
- * The run as the screen shows it. Marked as simulated on every number.
+ * @param {number} cents
+ * @returns {string}
+ */
+function pnlText(cents) {
+  const sign = cents >= 0 ? '+' : '-';
+  return `${sign}$${(Math.abs(cents) / 100).toFixed(2)}`;
+}
+
+/**
+ * What the pump.fun panel shows. Everything marked simulated comes from the paper walk.
  * @param {Db} db
  * @param {string} userId
  */
-export function pumpSummary(db, userId, seed = 0) {
-  const run = loadRun(db, userId);
+export function summary(db, userId) {
+  const run = ensureRun(db, userId);
   const rules = ruleSummary();
-  let openView = null;
-  if (run.open) {
-    const exit = decideExit(
-      { mint: run.open.mint, entryCents: run.open.entryCents, entryPrice: run.open.entryPrice, tokens: run.open.tokens },
-      run.open.lastPrice,
-    );
-    openView = {
-      symbol: run.open.symbol,
-      mint: run.open.mint,
-      sizeUsd: run.open.entryCents / 100,
-      valueUsd: exit.valueCents / 100,
-      pnlUsd: exit.pnlCents / 100,
-      reason: exit.reason,
-      simulated: true,
-    };
-  }
+  const realisedCents = Number(run.realised_cents);
+  const openCents = run.open_entry_cents === null ? 0 : Number(run.open_entry_cents);
+  const lastMicros = run.last_price_micros === null ? 0 : Number(run.last_price_micros);
+  const entryMicros = run.open_entry_price_micros === null ? 0 : Number(run.open_entry_price_micros);
+  const unrealisedCents = entryMicros > 0 && openCents > 0 ? Math.round(openCents * (lastMicros / entryMicros)) - openCents : 0;
   return {
-    rules,
+    venue: 'pump.fun',
     simulated: true,
-    balanceNote: 'Paper balance. Simulated prices. Nothing here is real money or a forecast.',
-    sizeUsd: run.sizeCents / 100,
-    maxSizeUsd: MAX_SIZE_CENTS / 100,
-    realisedUsd: run.realisedCents / 100,
-    goalUsd: GOAL_CENTS / 100,
-    goalReached: run.goalReached,
-    open: openView,
-    watchlist: run.watchlist,
-    closed: run.closed.slice(0, 10).map((c) => ({
-      symbol: c.symbol,
-      pnlUsd: c.pnlCents / 100,
-      reason: c.reason,
-      at: c.at,
-    })),
-    markets: history(list => list, 0, seed) && undefined,
-    paperMarkets: PAPER_MINTS,
+    rules,
+    sizeCents: Number(run.size_cents),
+    realisedCents,
+    goalCents: GOAL_CENTS,
+    goalReached: Boolean(run.goal_reached),
+    takeProfitCents: TAKE_PROFIT_CENTS,
+    stopLossPct: STOP_LOSS_PCT,
+    open: run.open_mint
+      ? {
+          mint: String(run.open_mint),
+          symbol: String(run.open_symbol ?? ''),
+          entryCents: openCents,
+          lastPriceMicros: lastMicros,
+          unrealisedCents,
+          lastMarkAt: run.last_mark_at,
+        }
+      : null,
+    closed: /** @type {any[]} */ (JSON.parse(run.closed_json)),
   };
-}
-
-/**
- * A stable per-account seed for the simulated feed, so two accounts do not see
- * identical runs and one account sees the same run on every reload.
- * @param {string} userId
- */
-export function seedFor(userId) {
-  const h = crypto.createHash('sha256').update(`pump:${userId}`).digest();
-  return h.readUInt32BE(0) % 1000;
 }
