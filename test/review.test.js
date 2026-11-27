@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestServer, signedInUser, authedPost, authedGet } from './helpers.js';
 import { tick, recordTrade } from '../server/bot.js';
-import { roundDown, money } from '../server/money.js';
+import { roundDown, money, toMicros, fromMicros } from '../server/money.js';
 
 const CROSSOVER_SEED = 6;
 const today = () => new Date().toISOString().slice(0, 10);
