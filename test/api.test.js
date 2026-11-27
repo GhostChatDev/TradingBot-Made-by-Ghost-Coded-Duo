@@ -68,6 +68,34 @@ test('credits: 402 with none, exact charge, never below zero', async (t) => {
     assert.equal(body.signal, undefined, 'no signal is returned when nothing was paid for');
     const after = srv.db.prepare('SELECT COUNT(*) AS n FROM api_calls WHERE status = 200').get();
     assert.equal(Number(after?.n), Number(before?.n), 'no successful call was recorded');
+
+    // No credit was taken and no strategy result was written anywhere.
+    const credits = await (await authedGet(srv.base, user.token, '/api/credits')).json();
+    assert.equal(credits.balance, 0, 'the balance stays at zero');
+    const entries = srv.db.prepare('SELECT COUNT(*) AS n FROM credit_entries').get();
+    assert.equal(Number(entries?.n), 0, 'no ledger entry was written for a refused call');
+    const runs = srv.db.prepare("SELECT COUNT(*) AS n FROM bot_events WHERE kind = 'signal'").get();
+    assert.equal(Number(runs?.n), 0, 'the strategy produced no signal event');
+  });
+
+  await t.test('a key only ever spends its own owner credits', async () => {
+    const rich = await signedInUser(srv.base);
+    await authedPost(srv.base, rich.token, '/api/credits/topup', { amount: 10 });
+    const richKey = (await (await authedPost(srv.base, rich.token, '/api/keys', { label: 'rich' })).json()).key;
+
+    const poor = await signedInUser(srv.base);
+    const poorKey = (await (await authedPost(srv.base, poor.token, '/api/keys', { label: 'poor' })).json()).key;
+
+    const richCall = await callSignal(srv.base, richKey);
+    assert.equal(richCall.status, 200);
+    assert.equal((await richCall.json()).balance, 9, 'only the owner balance goes down');
+
+    const poorCall = await callSignal(srv.base, poorKey);
+    assert.equal(poorCall.status, 402, 'the other account is still at zero');
+    const poorCredits = await (await authedGet(srv.base, poor.token, '/api/credits')).json();
+    assert.equal(poorCredits.balance, 0);
+    const richCredits = await (await authedGet(srv.base, rich.token, '/api/credits')).json();
+    assert.equal(richCredits.balance, 9, 'one account never pays for another');
   });
 
   await t.test('one call costs exactly the price per call', async () => {
