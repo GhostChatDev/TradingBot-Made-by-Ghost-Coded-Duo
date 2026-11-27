@@ -187,6 +187,9 @@ export function recordTrade(db, t) {
     t.status,
     t.mode === 'paper' ? null : (t.signature ?? null),
   );
+  // A filled trade moves the position and, when it closes at a lower price,
+  // adds the realised loss to today's total. This is what the daily cap reads.
+  if (t.status !== 'rejected') applyPosition(db, t.userId, t);
   return id;
 }
 
