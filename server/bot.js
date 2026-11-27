@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 import { HARD_MAX_DAILY_LOSS_USD, HARD_MAX_TRADE_USD } from './config.js';
 import { crossoverSignal } from './strategy.js';
+import { mainnetTransaction } from './mainnet-guard.js';
 import { Db } from './db.js';
 import { history, paperFee } from './prices.js';
 import { toMicros, fromMicros } from './money.js';
@@ -232,8 +233,13 @@ export function logEvent(db, userId, kind, message, botId = null) {
  */
 export function tick(db, p) {
   const { userId, market, strategy, params, mode, seed = 0, botId } = p;
-  if (mode !== 'paper' && mode !== 'devnet') {
-    throw new Error('only paper and devnet are available in this build');
+  if (mode !== 'paper' && mode !== 'devnet' && mode !== 'mainnet') {
+    throw new Error('only paper, devnet and mainnet are known modes');
+  }
+  // The one place a mainnet transaction could ever be built. With MAINNET_LIVE
+  // unset this throws and logs why, before any price or strategy work happens.
+  if (mode === 'mainnet') {
+    mainnetTransaction({ mode: 'mainnet', action: 'build', transaction: 'unsigned-mainnet-draft' });
   }
   const decision = evaluate(db, { userId, market, strategy, params, mode, seed });
   logEvent(db, userId, 'decision', `${decision.signal.toUpperCase()} - ${decision.reason}`, botId ?? null);
