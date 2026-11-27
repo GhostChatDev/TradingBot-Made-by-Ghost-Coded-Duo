@@ -13,7 +13,7 @@ create an **API key** and call the paid API. Real funds trading and real payment
 npm install
 cp .env.example .env      # every value there is a fake placeholder
 npm start                 # http://localhost:3000
-npm test                  # 30 tests (node:test)
+npm test                  # 43 tests (node:test)
 npm run typecheck         # tsc --noEmit
 ```
 
@@ -67,13 +67,30 @@ curl -s http://localhost:3000/api/v1/usage -H "Authorization: Bearer sb_sk_..."
 4. Payments: replace the TEST top-up handler with a real provider (webhook-verified, server-side)
    and set `PAYMENTS_MODE` accordingly. Nothing else in the app needs to change.
 
+## The pump.fun paper run (screen 3)
+
+`server/pumpfun.js` holds the rules, `server/pump-run.js` runs them and `server/migrations/002_pumpfun_run.sql`
+stores the run. Every mark is **paper**: take-profit, stop-loss, rotate to the next token, and compound
+wins back into the position size. Prices come from a deterministic simulated feed, so the same run
+replays the same numbers — no real order is ever built or sent here.
+
+- `GET /api/pump` — the run, its open position, what closed and the rule summary.
+- `POST /api/pump/step` — one paper mark; each decision is written to the log with its reason.
+
+**Delivery setting.** How a trade draft reaches you is a setting, `json` by default
+(`server/delivery.js`): the draft is returned as JSON in the response, never posted anywhere.
+Drafts are swept by a retention step so they do not pile up. No address is required to run the
+bot, and the app never asks for a deposit address or a private key.
+
 ## Where the code is
 
 `server/index.js` (Express app, routes, wallet sign-in) · `server/config.js` (every safety switch
 and the hard caps) · `server/bot.js` (signal → risk gate → paper fill or devnet draft) ·
+`server/pumpfun.js` + `server/pump-run.js` (pump.fun paper rules and the run) ·
+`server/delivery.js` (draft delivery + retention) ·
 `server/strategy.js` · `server/prices.js` · `server/keys.js` (hash + rate limit) ·
 `server/credits.js` (ledger) · `server/custody.js` (refuses key material, redacts logs) ·
-`server/db.js` + `migrations/` · `public/index.html` (the UI) · `test/*.test.js`.
+`server/db.js` + `server/migrations/` · `public/index.html` (the UI) · `test/*.test.js`.
 
 ---
 

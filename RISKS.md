@@ -45,3 +45,15 @@ devnet results are not predictions of anything.
 
 Real payments for credits are also off. `PAYMENTS_MODE=test` gives fake-money top-ups. Credits
 are an internal balance for API calls — never crypto held for you.
+
+## Risks specific to the pump.fun paper run
+
+- **The pump.fun run is paper only.** It never builds or sends a transaction. Its prices are a
+  simulated feed, so its results say nothing about what real trading would do.
+- **A paper result is not a prediction.** A rule set that looks fine on a simulated feed can lose
+  everything on a real market.
+- **pump.fun coins are extremely risky.** Most new coins lose almost all their value quickly, and
+  many are outright scams (rug pulls, honeypot tokens you cannot sell). Fees and slippage on every
+  round trip eat any small edge before it is a profit.
+- **Drafts are data, not orders.** A trade draft returns to your browser as JSON. Nothing is
+  posted to a third party, and no address or key is collected to make the bot work.
